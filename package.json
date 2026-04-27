@@ -2,7 +2,7 @@
 	"name": "styled-exceljs",
 	"version": "0.21.1",
 	"author": "sheetjs",
-	"description": "SheetJS Spreadsheet data parser and writer",
+	"description": "SheetJS CE fork with enhanced XLS/XLSX styling and browser rendering",
 	"keywords": [
 		"excel",
 		"xls",

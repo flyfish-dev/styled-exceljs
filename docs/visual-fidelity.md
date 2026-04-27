@@ -1,5 +1,9 @@
 # XLSX / XLS Visual Fidelity Extensions
 
+`styled-exceljs` is built from a fork of the original SheetJS Community Edition
+source code.  The fork keeps SheetJS-compatible APIs and extends the original
+reader / writer foundation with visual parsing and browser rendering features.
+
 This document describes the browser rendering metadata exposed by this build.
 The public model extends the existing SheetJS worksheet object and keeps default
 read behavior compatible.  Expensive visual parsing is enabled with explicit

@@ -1,5 +1,16 @@
 # [SheetJS](https://sheetjs.com)
 
+## Fork Notice
+
+`styled-exceljs` is a fork of the original SheetJS Community Edition source
+code.  This fork keeps the SheetJS-compatible workbook and worksheet model, then
+adds browser-oriented visual fidelity extensions for styles, dimensions,
+drawings, charts, merge validation, and HTML rendering.
+
+中文说明：`styled-exceljs` 基于 SheetJS Community Edition 原始代码 fork
+并继续增强，保持 SheetJS 兼容的数据模型，同时扩展样式、行列尺寸、图片绘图、
+图表、合并校验和浏览器 HTML 渲染能力。
+
 The SheetJS Community Edition offers battle-tested open-source solutions for
 extracting useful data from almost any complex spreadsheet and generating new
 spreadsheets that will work with legacy and modern software alike.

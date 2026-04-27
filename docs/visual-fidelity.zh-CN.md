@@ -1,5 +1,8 @@
 # XLSX / XLS 视觉保真扩展
 
+`styled-exceljs` 基于 SheetJS Community Edition 原始代码 fork 并继续增强。
+本 fork 保持 SheetJS 兼容 API 和读写基础，在此之上扩展视觉解析和浏览器渲染能力。
+
 本文档说明本版本在 SheetJS 兼容工作表模型上新增的浏览器渲染元数据。
 默认读取行为保持轻量和兼容；完整视觉信息需要通过显式选项启用。
 
