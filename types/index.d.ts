@@ -128,6 +128,30 @@ export interface CommonOptions {
     cellStyles?: boolean;
 
     /**
+     * If true, preserve row heights and column widths as browser CSS pixels
+     * @default false
+     */
+    browserPixels?: boolean;
+
+    /**
+     * If true, parse supported chart records and expose worksheet `!charts`
+     * @default false
+     */
+    charts?: boolean;
+
+    /**
+     * If true, parse supported drawing/image records and expose worksheet `!drawings`
+     * @default false
+     */
+    drawings?: boolean;
+
+    /**
+     * If true, validate merge ranges and throw on invalid or overlapping ranges
+     * @default false
+     */
+    validateMerges?: boolean;
+
+    /**
      * If defined and file is encrypted, use password
      * @default ''
      */
@@ -442,8 +466,22 @@ export interface ColInfo {
     /** outline / group level */
     level?: number;
 
+    /** XLSX column style index */
+    style?: number | string;
+
+    /** Column best-fit flag */
+    bestFit?: boolean | string;
+    bestfit?: boolean | string;
+
+    /** Column custom-width flag */
+    customWidth?: boolean | string;
+    customwidth?: boolean | string;
+
     /** Excel's "Max Digit Width" unit, always integral */
     MDW?: number;
+
+    /** default column style */
+    s?: CellStyle | any;
 
     /** DBF Field Header */
     DBF?: DBFField;
@@ -466,6 +504,292 @@ export interface RowInfo {
 
     /** outline / group level */
     level?: number;
+
+    /** XLS row style index */
+    ixfe?: number;
+
+    /** Row custom-height flag */
+    customHeight?: boolean | string;
+    customheight?: boolean | string;
+
+    /** default row style */
+    s?: CellStyle | any;
+}
+
+export type FontVertAlign = "baseline" | "superscript" | "subscript";
+export type FontScheme = "major" | "minor" | "none";
+export type FillPatternType = "none" | "solid" | "mediumGray" | "darkGray" | "lightGray" | "darkHorizontal" | "darkVertical" | "darkDown" | "darkUp" | "darkGrid" | "darkTrellis" | "lightHorizontal" | "lightVertical" | "lightDown" | "lightUp" | "lightGrid" | "lightTrellis" | "gray125" | "gray0625" | string;
+export type BorderStyleName = "none" | "thin" | "medium" | "dashed" | "dotted" | "thick" | "double" | "hair" | "mediumDashed" | "dashDot" | "mediumDashDot" | "dashDotDot" | "mediumDashDotDot" | "slantDashDot" | string;
+export type HorizontalAlign = "left" | "center" | "right" | "fill" | "justify" | "centerContinuous" | "distributed" | string;
+export type VerticalAlign = "top" | "center" | "bottom" | "justify" | "distributed" | string;
+export type DrawingAnchorType = "twoCellAnchor" | "oneCellAnchor" | "absoluteAnchor" | string;
+export type ChartType = "barChart" | "lineChart" | "areaChart" | "scatterChart" | "pieChart" | "doughnutChart" | "bubbleChart" | "radarChart" | "surfaceChart" | string;
+
+/** Spreadsheet style color */
+export interface StyleColor {
+    /** ARGB or RGB hex string */
+    rgb?: string;
+    /** Theme color index */
+    theme?: number;
+    /** Tint adjustment in the range -1..1 */
+    tint?: number;
+    /** Indexed palette color */
+    indexed?: number;
+    /** Alias for indexed palette color */
+    index?: number;
+    /** Automatic color flag */
+    auto?: boolean;
+    /** Original theme RGB before tint application */
+    raw_rgb?: string;
+}
+
+/** Spreadsheet font style */
+export interface FontStyle {
+    name?: string;
+    sz?: number;
+    color?: StyleColor;
+    bold?: boolean | number;
+    italic?: boolean | number;
+    underline?: boolean | number | string;
+    strike?: boolean | number;
+    outline?: boolean | number;
+    shadow?: boolean | number;
+    condense?: boolean | number;
+    extend?: boolean | number;
+    vertAlign?: FontVertAlign | string;
+    family?: number;
+    charset?: number;
+    scheme?: FontScheme | string;
+}
+
+/** Spreadsheet fill style */
+export interface FillStyle {
+    patternType?: FillPatternType;
+    fgColor?: StyleColor;
+    bgColor?: StyleColor;
+    gradientFill?: any;
+}
+
+/** Spreadsheet border side */
+export interface BorderPr {
+    style?: BorderStyleName;
+    color?: StyleColor;
+}
+
+/** Spreadsheet border style */
+export interface BorderStyle {
+    left?: BorderPr;
+    right?: BorderPr;
+    top?: BorderPr;
+    bottom?: BorderPr;
+    diagonal?: BorderPr;
+    horizontal?: BorderPr;
+    vertical?: BorderPr;
+    start?: BorderPr;
+    end?: BorderPr;
+    diagonalUp?: boolean;
+    diagonalDown?: boolean;
+}
+
+/** Spreadsheet alignment style */
+export interface AlignmentStyle {
+    horizontal?: HorizontalAlign;
+    vertical?: VerticalAlign;
+    textRotation?: number;
+    indent?: number;
+    relativeIndent?: number;
+    readingOrder?: number;
+    wrapText?: boolean;
+    shrinkToFit?: boolean;
+    justifyLastLine?: boolean;
+}
+
+/** Spreadsheet protection style */
+export interface ProtectionStyle {
+    locked?: boolean;
+    hidden?: boolean;
+}
+
+/** Resolved cell style */
+export interface CellStyle extends FillStyle {
+    /** Style index in the source workbook */
+    id?: number;
+    /** Raw XF/style record */
+    xf?: any;
+    numFmtId?: number;
+    numFmt?: string;
+    font?: FontStyle;
+    fill?: FillStyle;
+    border?: BorderStyle;
+    alignment?: AlignmentStyle;
+    protection?: ProtectionStyle;
+    /** Compatibility alias for fill.fgColor */
+    fgColor?: StyleColor;
+    /** Compatibility alias for fill.bgColor */
+    bgColor?: StyleColor;
+}
+
+export interface TextMeasureOpts {
+    /** Browser-compatible text measurement callback. Receives text, CSS font string, and resolved style. */
+    measureText?: (text: string, font: string, style: CellStyle) => number;
+    /** Optional canvas-like object used for browser measureText fallback */
+    canvas?: any;
+    /** Maximum digit width in CSS pixels for Excel width conversion */
+    MDW?: number;
+    /** Additional pixel padding used when measuring cell text */
+    padding?: number;
+}
+
+export interface AutoFitColumnOpts extends TextMeasureOpts {
+    /** Range to scan. Defaults to worksheet !ref */
+    range?: string | Range;
+    /** Minimum column width in Excel characters */
+    min?: number;
+    /** Maximum column width in Excel characters */
+    max?: number;
+    /** Minimum column width in browser pixels */
+    minPx?: number;
+    /** Maximum column width in browser pixels */
+    maxPx?: number;
+    /** Include merged cells when measuring width. Defaults to true */
+    includeMerged?: boolean;
+    /** Skip hidden rows and columns */
+    skipHidden?: boolean;
+    /** If false, return computed columns without mutating worksheet !cols */
+    set?: boolean;
+}
+
+export type HTMLOverflowMode = "excel" | "visible" | "clip" | "hidden";
+
+/** Drawing relationship entry */
+export interface DrawingRelationship {
+    Type?: string;
+    Target?: string;
+    Id?: string;
+    TargetMode?: string;
+}
+
+/** Parsed drawing marker */
+export interface DrawingMarker {
+    col: number;
+    colOff: number;
+    row: number;
+    rowOff: number;
+}
+
+/** Parsed drawing anchor */
+export interface DrawingAnchor {
+    type?: DrawingAnchorType;
+    flags?: number;
+    from?: DrawingMarker;
+    to?: DrawingMarker;
+    pos?: { x: number; y: number; };
+    ext?: { cx: number; cy: number; };
+}
+
+/** Cached chart series values */
+export interface ChartCache {
+    values?: Array<number | string>;
+    formatCode?: string;
+    formula?: string;
+}
+
+/** Parsed chart series */
+export interface ChartSeries {
+    name?: string;
+    idx?: number;
+    order?: number;
+    chartType?: ChartType;
+    cat?: ChartCache;
+    val?: ChartCache;
+    xVal?: ChartCache;
+    yVal?: ChartCache;
+    bubbleSize?: ChartCache;
+    data?: Array<number | string>;
+    raw?: any;
+}
+
+/** Parsed chart legend */
+export interface ChartLegend {
+    position?: string;
+    raw?: any;
+}
+
+/** Parsed chart model from XLSX chartSpace or XLS chart records */
+export interface ChartModel {
+    target?: string;
+    raw?: any;
+    rels?: any;
+    type?: ChartType;
+    grouping?: string;
+    title?: string;
+    legend?: ChartLegend;
+    series?: ChartSeries[];
+}
+
+/** Parsed chart information */
+export interface ChartInfo {
+    id?: string;
+    rel?: DrawingRelationship;
+    objectId?: number;
+    biffType?: string;
+    target?: string;
+    path?: string;
+    title?: string;
+    anchor?: DrawingAnchor;
+    model?: ChartModel;
+    data?: WorkSheet;
+    raw?: any;
+}
+
+/** Parsed drawing image */
+export interface DrawingImage {
+    id?: string;
+    rel?: DrawingRelationship;
+    objectId?: number;
+    biffType?: string;
+    target?: string;
+    path?: string;
+    anchor?: DrawingAnchor;
+    dataURI?: string;
+    contentType?: string;
+    raw?: any;
+}
+
+/** Parsed drawing shape/textbox or unsupported drawing fallback */
+export interface DrawingShape {
+    id?: string;
+    rel?: DrawingRelationship;
+    objectId?: number;
+    biffType?: string;
+    target?: string;
+    anchor?: DrawingAnchor;
+    text?: string;
+    props?: any;
+    raw?: any;
+}
+
+/** Parsed drawing information */
+export interface DrawingInfo {
+    /** Raw DrawingML XML, BIFF OfficeArt blobs, or parser-specific fallback */
+    raw?: any;
+    /** Primary chart target in chart sheets */
+    chart?: string;
+    charts?: ChartInfo[];
+    images?: DrawingImage[];
+    shapes?: DrawingShape[];
+    groups?: boolean;
+}
+
+/** Merge validation error */
+export interface MergeError {
+    code: string;
+    message: string;
+    index: number;
+    other?: number;
+    range?: string | Range;
+    otherRange?: string;
+    ref?: string;
 }
 
 /**
@@ -611,7 +935,7 @@ export interface DenseSheet extends Sheet {
      */
     '!data': DenseSheetData;
 }
-export type DenseSheetData = ((CellObject|undefined)[]|undefined)[];
+export type DenseSheetData = Array<Array<CellObject|undefined>|undefined>;
 /** General object representing a sparse Sheet (worksheet or chartsheet) */
 export interface SparseSheet extends Sheet {
     /**
@@ -628,7 +952,7 @@ export interface AutoFilterInfo {
     ref: string;
 }
 
-export type WSKeys = SheetKeys | ColInfo[] | RowInfo[] | Range[] | ProtectInfo | AutoFilterInfo;
+export type WSKeys = SheetKeys | ColInfo[] | RowInfo[] | Range[] | ProtectInfo | AutoFilterInfo | ChartModel | ChartInfo[] | DrawingInfo | MergeError[];
 
 /** Worksheet Object */
 export interface WorkSheet extends Sheet {
@@ -647,6 +971,18 @@ export interface WorkSheet extends Sheet {
     /** Merge Ranges */
     '!merges'?: Range[];
 
+    /** Merge validation errors */
+    '!mergeErrors'?: MergeError[];
+
+    /** Parsed chart drawings */
+    '!charts'?: ChartInfo[];
+
+    /** Parsed chart model for chartsheets */
+    '!chart'?: ChartModel;
+
+    /** Parsed drawing information */
+    '!drawings'?: DrawingInfo;
+
     /** Worksheet Protection info */
     '!protect'?: ProtectInfo;
 
@@ -654,7 +990,7 @@ export interface WorkSheet extends Sheet {
     '!autofilter'?: AutoFilterInfo;
 }
 /** Dense Worksheet Object */
-export interface DenseWorkSheet extends DenseSheet {}
+export type DenseWorkSheet = DenseSheet;
 
 /**
  * Worksheet Object with CellObject type
@@ -741,7 +1077,7 @@ export interface CellObject {
     l?: Hyperlink;
 
     /** The style/theme of the cell (if applicable) */
-    s?: any;
+    s?: CellStyle | any;
 }
 
 /** Simple Cell Address */
@@ -803,6 +1139,30 @@ export interface Sheet2HTMLOpts {
 
     /** If true, remove javascript: URLs from hyperlinks */
     sanitizeLinks?: boolean;
+
+    /** If true, emit CSS for parsed cell styles */
+    cellStyles?: boolean;
+
+    /** If true, emit browser pixel column widths and row heights */
+    browserPixels?: boolean;
+
+    /** If true, render parsed charts as inline SVG */
+    charts?: boolean;
+
+    /** If true, render parsed drawing images */
+    drawings?: boolean;
+
+    /** If true or an options object, auto-fit columns using measured text widths */
+    autoFit?: boolean | AutoFitColumnOpts;
+
+    /** Unwrapped text overflow behavior for browser rendering */
+    overflow?: HTMLOverflowMode;
+
+    /** Browser-compatible text measurement callback used by autoFit and shrink-to-fit */
+    measureText?: (text: string, font: string, style: CellStyle) => number;
+
+    /** Optional canvas-like object used for text measurement */
+    canvas?: any;
 }
 
 export interface Sheet2JSONOpts extends DateNFOption {
@@ -940,6 +1300,30 @@ export interface XLSX$Utils {
 
     /** Generates HTML */
     sheet_to_html(worksheet: WorkSheet, options?: Sheet2HTMLOpts): string;
+
+    /** Validate worksheet merge ranges */
+    validate_merges(worksheet: WorkSheet, opts?: CommonOptions): MergeError[];
+
+    /** Measure text width in browser pixels using Canvas when available */
+    measure_text_width(text: string, style?: CellStyle, opts?: TextMeasureOpts): number;
+
+    /** Auto-fit worksheet columns based on formatted cell text */
+    auto_fit_columns(worksheet: WorkSheet, opts?: AutoFitColumnOpts): ColInfo[];
+
+    /** Alias for auto_fit_columns */
+    autofit_columns(worksheet: WorkSheet, opts?: AutoFitColumnOpts): ColInfo[];
+
+    /** Convert XLSX column width to browser pixels */
+    col_width_to_px(width: number): number;
+
+    /** Convert browser pixels to XLSX column width */
+    px_to_col_width(px: number): number;
+
+    /** Convert row height points to browser pixels */
+    row_height_to_px(hpt: number): number;
+
+    /** Convert browser pixels to row height points */
+    px_to_row_height(hpx: number): number;
 
     /** Generates a list of the formulae (with value fallbacks) */
     sheet_to_formulae(worksheet: WorkSheet, options?: Sheet2FormulaOpts): string[];

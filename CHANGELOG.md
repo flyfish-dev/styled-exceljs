@@ -9,6 +9,55 @@ changes may not be included if they are not expected to break existing code.
 * Proper handling of XLSX encoded entities (h/t @inreoh)
 * Proper handling of invalid DIF sheets that match heuristics (h/t @lowkeyfish)
 
+## v0.21.1
+
+* Added browser-aware text measurement and `XLSX.utils.auto_fit_columns` for
+  best-fit column widths with wrap, overflow, shrink-to-fit, and merge support
+* `sheet_to_html` visual mode now supports `autoFit`, `overflow`, fixed-layout
+  `<colgroup>` output, and Canvas-backed shrink-to-fit sizing
+* Updated TypeScript definitions, English documentation, Chinese documentation,
+  and unit tests for the auto-fit rendering path
+
+中文摘要：
+
+* 新增浏览器文字测量和 `XLSX.utils.auto_fit_columns`，可结合换行、溢出、
+  收缩适应和合并跨度计算最优列宽
+* `sheet_to_html` 视觉模式支持 `autoFit`、`overflow`、固定布局 `<colgroup>`
+  和基于 Canvas 测量的收缩适应字号
+* 更新 TypeScript 类型、英文文档、中文文档和自动列宽单元测试
+
+## v0.21.0
+
+* XLSX style parsing resolves fonts, fills, borders, alignment, protection,
+  colors, theme tint, and number formats into full `cell.s` objects
+* XLS BIFF8 style parsing maps Font / XF / XFExt / Palette / Theme records to
+  the same style model used for XLSX
+* `sheet_to_html` visual mode emits browser pixel row/column dimensions,
+  styles, merged cells, drawing images, and chart SVG
+* XLSX and XLS drawing/chart parsing is gated behind explicit `drawings` and
+  `charts` options to preserve default read performance
+* Added `ws["!drawings"]`, `ws["!charts"]`, chartsheet `ws["!chart"]`,
+  `ws["!mergeErrors"]`, `XLSX.utils.validate_merges`, and browser pixel
+  conversion helpers
+* Added complete public TypeScript definitions for styles, colors, drawings,
+  charts, merge errors, and visual HTML options
+* Added `docs/visual-fidelity.md` and `misc/visual_matrix.js` for integration
+  guidance and XLS/XLSX visual completeness checks
+
+中文摘要：
+
+* 完整扩展 XLSX / XLS 视觉读取能力，包括完整样式、颜色、边框、对齐、
+  行列尺寸、合并校验、图片、绘图和常见图表模型
+* `sheet_to_html` 在显式开启视觉选项后可输出浏览器像素尺寸、样式、
+  合并单元格、图片层和 SVG 图表，默认读取路径仍保持轻量兼容
+* 新增 `cell.s` 完整样式对象、`ws["!drawings"]`、`ws["!charts"]`、
+  图表工作表 `ws["!chart"]`、`ws["!mergeErrors"]`、
+  `XLSX.utils.validate_merges` 和像素换算工具
+* 补全 TypeScript 类型声明，覆盖样式、颜色、边框、图表、绘图、合并错误
+  和浏览器渲染选项
+* 新增英文文档 `docs/visual-fidelity.md`、中文文档
+  `docs/visual-fidelity.zh-CN.md` 和完整度报告脚本 `misc/visual_matrix.js`
+
 ## v0.20.3
 
 * Correct parsing of NUMBERS and ODS merge cells (h/t @s-ashwin)
@@ -363,4 +412,3 @@ $ sed -i .ext [...] # bsd
 
 * Removed ods.js source.  The xlsx.js source absorbed the ODS logic and exposes
   the ODS variable, so projects should remove references to ods.js
-

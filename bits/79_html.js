@@ -61,11 +61,109 @@ function html_to_sheet(str/*:string*/, _opts)/*:Workbook*/ {
 	if(merges.length) ws["!merges"] = merges;
 	return ws;
 }
+
+function cssesc(x) { return escapexml(String(x).replace(/"/g, "'")); }
+function css_color(color) {
+	if(!color) return "";
+	if(color.rgb) return "#" + String(color.rgb).slice(-6);
+	return "";
+}
+function css_font_family(name) {
+	if(!name) return "";
+	return "'" + cssesc(name).replace(/'/g, "\\'") + "'";
+}
+function html_border_style(style) {
+	switch(style) {
+		case "dashDot": case "dashDotDot": case "dashed": case "mediumDashed": return "dashed";
+		case "dotted": case "hair": return "dotted";
+		case "double": return "double";
+		case "none": return "none";
+		default: return "solid";
+	}
+}
+function html_border_width(style) {
+	switch(style) {
+		case "medium": case "mediumDashDot": case "mediumDashDotDot": case "mediumDashed": return "2px";
+		case "thick": return "3px";
+		case "hair": return "1px";
+		default: return "1px";
+	}
+}
+function add_html_border(css, side, border) {
+	if(!border || !border.style || border.style == "none") return;
+	var color = css_color(border.color) || "#000000";
+	css.push("border-" + side + ":" + html_border_width(border.style) + " " + html_border_style(border.style) + " " + color);
+}
+function html_cell_style(cell/*:Cell*/, opts/*:Sheet2HTMLOpts*/) {
+	if(!opts || !opts.cellStyles || !cell || !cell.s) return "";
+	var s = cell.s, css = [];
+	var font = s.font || {};
+	if(font.name) css.push("font-family:" + css_font_family(font.name));
+	if(font.sz) css.push("font-size:" + font.sz + "pt");
+	if(font.bold) css.push("font-weight:bold");
+	if(font.italic) css.push("font-style:italic");
+	var deco = [];
+	if(font.underline) deco.push("underline");
+	if(font.strike) deco.push("line-through");
+	if(deco.length) css.push("text-decoration:" + deco.join(" "));
+	if(font.color && css_color(font.color)) css.push("color:" + css_color(font.color));
+	var fill = s.fill || s;
+	var fillColor = "";
+	if(fill.patternType != "none" && fill.patternType != "gray125") fillColor = css_color(fill.fgColor) || css_color(fill.bgColor);
+	if(fillColor) css.push("background-color:" + fillColor);
+	var alignment = s.alignment || {};
+	if(alignment.horizontal) css.push("text-align:" + alignment.horizontal);
+	if(alignment.vertical) css.push("vertical-align:" + alignment.vertical);
+	if(alignment.textRotation != null && alignment.textRotation !== 0) {
+		var deg = alignment.textRotation == 255 ? 90 : alignment.textRotation > 90 ? 90 - alignment.textRotation : alignment.textRotation;
+		css.push("transform:rotate(" + deg + "deg)");
+		css.push("transform-origin:center");
+	}
+	var border = s.border || {};
+	add_html_border(css, "left", border.left || border.start);
+	add_html_border(css, "right", border.right || border.end);
+	add_html_border(css, "top", border.top);
+	add_html_border(css, "bottom", border.bottom);
+	return css.join(";");
+}
+function html_cell_layout_style(cell/*:Cell*/, opts/*:Sheet2HTMLOpts*/, C/*:number*/, CS/*:number*/, cols/*:Array<ColInfo>*/) {
+	if(!opts || !cell) return "";
+	var s = cell.s || {}, alignment = s.alignment || {}, css = [];
+	if(opts.browserPixels || opts.autoFit) css.push("box-sizing:border-box;padding:0 2px;min-width:0");
+	if(alignment.wrapText) css.push("white-space:pre-wrap;overflow-wrap:normal;word-break:normal");
+	else {
+		css.push("white-space:pre");
+		if(alignment.shrinkToFit || opts.overflow == "clip" || opts.overflow == "hidden") css.push("overflow:hidden;text-overflow:clip");
+		else css.push("overflow:visible");
+	}
+	if(alignment.shrinkToFit && cols && C != null) {
+		var have = 0, span = CS || 1;
+		for(var j = 0; j < span; ++j) have += html_col_width(cols[C+j]);
+		var need = measure_cell_text_width(cell, s, opts);
+		if(have > 0 && need > have) {
+			var scale = Math.max(0.25, Math.min(1, have / need));
+			css.push("font-size:" + Math.max(1, style_font_size_pt(s) * scale) + "pt");
+		}
+	}
+	return css.join(";");
+}
+function html_col_width(col) {
+	return col2px(col);
+}
+function html_row_height(row) {
+	if(!row) return 20;
+	if(row.hpx != null) return row.hpx;
+	if(row.hpt != null) return pt2px_browser(row.hpt);
+	return 20;
+}
+
 function make_html_row(ws/*:Worksheet*/, r/*:Range*/, R/*:number*/, o/*:Sheet2HTMLOpts*/)/*:string*/ {
 	var M/*:Array<Range>*/ = (ws['!merges'] ||[]);
 	var oo/*:Array<string>*/ = [];
 	var sp = ({}/*:any*/);
 	var dense = ws["!data"] != null;
+	var row = (ws["!rows"]||[])[R];
+	var cols = o && o._htmlCols || ws["!cols"] || [];
 	for(var C = r.s.c; C <= r.e.c; ++C) {
 		var RS = 0, CS = 0;
 		for(var j = 0; j < M.length; ++j) {
@@ -77,9 +175,21 @@ function make_html_row(ws/*:Worksheet*/, r/*:Range*/, R/*:number*/, o/*:Sheet2HT
 		if(RS < 0) continue;
 		var coord = encode_col(C) + encode_row(R);
 		var cell = dense ? (ws["!data"][R]||[])[C] : ws[coord];
+		var stylecell = cell;
 		if(cell && cell.t == 'n' && cell.v != null && !isFinite(cell.v)) {
 			if(isNaN(cell.v)) cell = ({t:'e', v:0x24, w:BErr[0x24]});
 			else cell = ({t:'e', v:0x07, w:BErr[0x07]});
+			stylecell = cell;
+		}
+		if(o.cellStyles) {
+			var inherited = ({}/*:any*/);
+			if(cols[C] && cols[C].s) extend_style_obj(inherited, cols[C].s);
+			if(row && row.s) extend_style_obj(inherited, row.s);
+			if(cell && cell.s) extend_style_obj(inherited, cell.s);
+			if(keys(inherited).length) {
+				stylecell = cell ? dup(cell) : {t:'z'};
+				stylecell.s = inherited;
+			}
 		}
 		/* TODO: html entities */
 		var w = (cell && cell.v != null) && (cell.h || escapehtml(cell.w || (format_cell(cell), cell.w) || "")) || "";
@@ -95,11 +205,20 @@ function make_html_row(ws/*:Worksheet*/, r/*:Range*/, R/*:number*/, o/*:Sheet2HT
 			if(cell.f != null) sp["data-f"] = escapehtml(cell.f);
 			if(cell.l && (cell.l.Target || "#").charAt(0) != "#" && (!o.sanitizeLinks || (cell.l.Target || "").slice(0, 11).toLowerCase() != 'javascript:')) w = '<a href="' + escapehtml(cell.l.Target) +'">' + w + '</a>';
 		}
+		var cstyle = html_cell_style(stylecell, o);
+		var lstyle = html_cell_layout_style(stylecell, o, C, CS, cols);
+		if(lstyle) cstyle = cstyle ? cstyle + ";" + lstyle : lstyle;
+		if(cstyle) sp.style = cstyle;
 		sp.id = (o.id || "sjs") + "-" + coord;
 		oo.push(writextag('td', w, sp));
 	}
-	var preamble = "<tr>";
-	return preamble + oo.join("") + "</tr>";
+	var rsp = ({}/*:any*/), rstyle = [];
+	if(row) {
+		if(row.hidden) rstyle.push("display:none");
+		if(o.browserPixels) rstyle.push("height:" + html_row_height(row) + "px");
+	}
+	if(rstyle.length) rsp.style = rstyle.join(";");
+	return writextag('tr', oo.join(""), rsp);
 }
 
 var HTML_BEGIN = '<html><head><meta charset="utf-8"/><title>SheetJS Table Export</title></head><body>';
@@ -119,20 +238,178 @@ function html_to_workbook(str/*:string*/, opts)/*:Workbook*/ {
 	return wb;
 }
 
+var HTML_EMU_PER_PIXEL = 9525;
+function html_anchor_pos(ws, anchor, opts) {
+	var out = {left:0, top:0, width:480, height:288};
+	var cols = opts && opts._htmlCols || ws["!cols"] || [], rows = ws["!rows"] || [];
+	var from = anchor && anchor.from || {col:0,row:0,colOff:0,rowOff:0};
+	var to = anchor && anchor.to;
+	for(var C = 0; C < (from.col||0); ++C) out.left += html_col_width(cols[C]);
+	for(var R = 0; R < (from.row||0); ++R) out.top += html_row_height(rows[R]);
+	out.left += (from.colOff||0) / HTML_EMU_PER_PIXEL;
+	out.top += (from.rowOff||0) / HTML_EMU_PER_PIXEL;
+	if(to) {
+		var right = 0, bottom = 0;
+		for(C = 0; C < (to.col||0); ++C) right += html_col_width(cols[C]);
+		for(R = 0; R < (to.row||0); ++R) bottom += html_row_height(rows[R]);
+		right += (to.colOff||0) / HTML_EMU_PER_PIXEL;
+		bottom += (to.rowOff||0) / HTML_EMU_PER_PIXEL;
+		out.width = Math.max(1, right - out.left);
+		out.height = Math.max(1, bottom - out.top);
+	} else if(anchor && anchor.ext) {
+		if(anchor.ext.cx) out.width = anchor.ext.cx / HTML_EMU_PER_PIXEL;
+		if(anchor.ext.cy) out.height = anchor.ext.cy / HTML_EMU_PER_PIXEL;
+	}
+	return out;
+}
+function html_abs_style(pos) {
+	return "position:absolute;left:" + Math.round(pos.left) + "px;top:" + Math.round(pos.top) + "px;width:" + Math.round(pos.width) + "px;height:" + Math.round(pos.height) + "px";
+}
+function chart_series_values(ser) {
+	if(!ser) return [];
+	if(ser.val && ser.val.values) return ser.val.values;
+	if(ser.yVal && ser.yVal.values) return ser.yVal.values;
+	if(ser.data && ser.data.length) return ser.data;
+	return [];
+}
+function chart_series_labels(ser) {
+	if(!ser) return [];
+	if(ser.cat && ser.cat.values) return ser.cat.values;
+	if(ser.xVal && ser.xVal.values) return ser.xVal.values;
+	return [];
+}
+function render_chart_svg(chart, width, height) {
+	var model = chart && (chart.model || chart["!chart"] || chart);
+	if(!model) return "";
+	var series = model.series || [], type = (model.type || "").replace(/Chart$/, "");
+	var w = Math.max(160, Math.round(width || 480)), h = Math.max(120, Math.round(height || 288));
+	var title = model.title || chart.title || "";
+	var colors = ["#4F81BD","#C0504D","#9BBB59","#8064A2","#4BACC6","#F79646"];
+	var out = ['<svg class="sjs-chart-svg" xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">'];
+	out.push('<rect x="0" y="0" width="' + w + '" height="' + h + '" fill="#fff" stroke="#d0d7de"/>');
+	if(title) out.push('<text x="' + (w/2) + '" y="20" text-anchor="middle" font-family="Arial" font-size="14">' + escapehtml(title) + '</text>');
+	var top = title ? 34 : 16, left = 42, right = 14, bottom = 28;
+	var pw = w - left - right, ph = h - top - bottom;
+	var all = [];
+	series.forEach(function(ser) { chart_series_values(ser).forEach(function(v) { if(typeof v == "number" && isFinite(v)) all.push(v); }); });
+	var max = Math.max.apply(Math, all.concat([0])), min = Math.min.apply(Math, all.concat([0]));
+	if(min > 0) min = 0;
+	if(max == min) max = min + 1;
+	out.push('<line x1="' + left + '" y1="' + (top+ph) + '" x2="' + (left+pw) + '" y2="' + (top+ph) + '" stroke="#444"/>');
+	out.push('<line x1="' + left + '" y1="' + top + '" x2="' + left + '" y2="' + (top+ph) + '" stroke="#444"/>');
+	if(type == "pie" || type == "doughnut") {
+		var vals = chart_series_values(series[0] || {});
+		var total = vals.reduce(function(a,b) { return a + (typeof b == "number" ? Math.max(0,b) : 0); }, 0) || 1;
+		var cx = w/2, cy = top + ph/2, r = Math.max(10, Math.min(pw, ph) / 2 - 8), a0 = -Math.PI/2;
+		vals.forEach(function(v, i) {
+			var a1 = a0 + (Math.max(0, +v || 0) / total) * Math.PI * 2;
+			var x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+			var x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+			var large = a1 - a0 > Math.PI ? 1 : 0;
+			out.push('<path d="M' + cx + ',' + cy + ' L' + x0 + ',' + y0 + ' A' + r + ',' + r + ' 0 ' + large + ',1 ' + x1 + ',' + y1 + ' Z" fill="' + colors[i%colors.length] + '"/>');
+			a0 = a1;
+		});
+		if(type == "doughnut") out.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + (r*0.45) + '" fill="#fff"/>');
+		out.push('</svg>');
+		return out.join("");
+	}
+	var count = 0;
+	series.forEach(function(ser) { count = Math.max(count, chart_series_values(ser).length); });
+	if(!count) { out.push('</svg>'); return out.join(""); }
+	var xstep = pw / count;
+	series.forEach(function(ser, si) {
+		var vals = chart_series_values(ser), color = colors[si % colors.length];
+		if(type == "line" || type == "scatter" || type == "area") {
+			var pts = [];
+			vals.forEach(function(v, i) {
+				if(typeof v != "number" || !isFinite(v)) return;
+				var x = left + xstep * (i + 0.5);
+				var y = top + ph - (v - min) / (max - min) * ph;
+				pts.push([x,y]);
+			});
+			if(type == "area" && pts.length) out.push('<polygon points="' + [[pts[0][0],top+ph]].concat(pts).concat([[pts[pts.length-1][0],top+ph]]).map(function(p) { return p[0] + "," + p[1]; }).join(" ") + '" fill="' + color + '" opacity="0.35"/>');
+			if(pts.length) out.push('<polyline points="' + pts.map(function(p) { return p[0] + "," + p[1]; }).join(" ") + '" fill="none" stroke="' + color + '" stroke-width="2"/>');
+			pts.forEach(function(p) { out.push('<circle cx="' + p[0] + '" cy="' + p[1] + '" r="2.5" fill="' + color + '"/>'); });
+		} else {
+			var bw = Math.max(1, xstep / Math.max(series.length, 1) * 0.72);
+			vals.forEach(function(v, i) {
+				if(typeof v != "number" || !isFinite(v)) return;
+				var x = left + xstep * i + (xstep - bw * series.length) / 2 + bw * si;
+				var y = top + ph - (v - min) / (max - min) * ph;
+				var y0 = top + ph - (0 - min) / (max - min) * ph;
+				out.push('<rect x="' + x + '" y="' + Math.min(y,y0) + '" width="' + bw + '" height="' + Math.max(1, Math.abs(y0-y)) + '" fill="' + color + '"/>');
+			});
+		}
+		if(ser.name) out.push('<text x="' + (left + 8) + '" y="' + (top + 14 + si * 14) + '" font-family="Arial" font-size="11" fill="' + color + '">' + escapehtml(ser.name) + '</text>');
+	});
+	var labels = chart_series_labels(series[0] || {});
+	labels.slice(0, Math.min(labels.length, count)).forEach(function(lbl, i) {
+		if(i % Math.ceil(count / 8) != 0) return;
+		out.push('<text x="' + (left + xstep * (i + 0.5)) + '" y="' + (top + ph + 16) + '" text-anchor="middle" font-family="Arial" font-size="10">' + escapehtml(String(lbl)) + '</text>');
+	});
+	out.push('</svg>');
+	return out.join("");
+}
+function render_html_drawings(ws, opts) {
+	var out = [], drawings = ws["!drawings"] || {}, charts = ws["!charts"] || [];
+	if(opts && opts.drawings && drawings.images) drawings.images.forEach(function(img) {
+		if(!img || !img.dataURI) return;
+		var pos = html_anchor_pos(ws, img.anchor, opts);
+		out.push('<img class="sjs-drawing-image" src="' + img.dataURI + '" style="' + html_abs_style(pos) + '"/>');
+	});
+	if(opts && opts.charts) charts.forEach(function(chart) {
+		var pos = html_anchor_pos(ws, chart.anchor, opts);
+		out.push('<div class="sjs-chart" style="' + html_abs_style(pos) + '">' + render_chart_svg(chart, pos.width, pos.height) + '</div>');
+	});
+	if(!out.length) return "";
+	return '<div class="sjs-drawing-layer" style="position:absolute;left:0;top:0;pointer-events:none">' + out.join("") + '</div>';
+}
 function make_html_preamble(ws/*:Worksheet*/, R/*:Range*/, o/*:Sheet2HTMLOpts*/)/*:string*/ {
 	var out/*:Array<string>*/ = [];
-	return out.join("") + '<table' + (o && o.id ? ' id="' + o.id + '"' : "") + '>';
+	var tattr = ({}/*:any*/), tstyle = [];
+	if(o && o.id) tattr.id = o.id;
+	if(o && (o.browserPixels || o.autoFit)) tstyle.push("border-collapse:collapse;table-layout:fixed");
+	if(tstyle.length) tattr.style = tstyle.join(";");
+	var table = writextag("table", "", tattr).replace(/<\/table>$/, "");
+	var cols = o && o._htmlCols || ws["!cols"];
+	if(o && (o.browserPixels || o.autoFit) && cols) {
+		out.push("<colgroup>");
+		for(var C = R.s.c; C <= R.e.c; ++C) {
+			var col = cols[C], style = [];
+			style.push("width:" + html_col_width(col) + "px");
+			if(col && col.hidden) style.push("display:none");
+			out.push(writextag("col", null, {style:style.join(";")}));
+		}
+		out.push("</colgroup>");
+	}
+	return table + out.join("");
 }
 
 function sheet_to_html(ws/*:Worksheet*/, opts/*:?Sheet2HTMLOpts*//*, wb:?Workbook*/)/*:string*/ {
-	var o = opts || {};
+	var o = {};
+	if(opts) for(var k in opts) if(Object.prototype.hasOwnProperty.call(opts, k)) o[k] = opts[k];
+	if(o.autoFit) {
+		var af = {set:false};
+		if(typeof o.autoFit == "object") for(k in o.autoFit) if(Object.prototype.hasOwnProperty.call(o.autoFit, k)) af[k] = o.autoFit[k];
+		if(o.measureText && af.measureText == null) af.measureText = o.measureText;
+		if(o.canvas && af.canvas == null) af.canvas = o.canvas;
+		o._htmlCols = auto_fit_columns(ws, af);
+		if(o.browserPixels == null) o.browserPixels = true;
+	}
 	var header = o.header != null ? o.header : HTML_BEGIN;
 	var footer = o.footer != null ? o.footer : HTML_END;
 	var out/*:Array<string>*/ = [header];
 	var r = decode_range(ws['!ref'] || "A1");
+	var draw = (o.charts && ws["!charts"] && ws["!charts"].length) || (o.drawings && ws["!drawings"]);
+	if(draw) out.push('<div class="sjs-sheet" style="position:relative;display:inline-block">');
 	out.push(make_html_preamble(ws, r, o));
 	if(ws["!ref"]) for(var R = r.s.r; R <= r.e.r; ++R) out.push(make_html_row(ws, r, R, o));
-	out.push("</table>" + footer);
+	if(draw) {
+		out.push("</table>");
+		out.push(render_html_drawings(ws, o));
+		out.push("</div>");
+		out.push(footer);
+	} else out.push("</table>" + footer);
 	return out.join("");
 }
 

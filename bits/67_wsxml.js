@@ -74,6 +74,7 @@ function parse_ws_xml(data/*:?string*/, opts, idx/*:number*/, rels, wb/*:WBWBPro
 
 	/* legacyDrawing */
 	var m;
+	if((m = data2.match(/<(?:\w+:)?drawing\b[^<>]*r:id="(.*?)"/))) s['!rel'] = m[1];
 	if((m = data2.match(/legacyDrawing r:id="(.*?)"/))) s['!legrel'] = m[1];
 
 	if(opts && opts.nodim) refguess.s.c = refguess.s.r = 0;
@@ -91,7 +92,12 @@ function parse_ws_xml(data/*:?string*/, opts, idx/*:number*/, rels, wb/*:WBWBPro
 		}
 	}
 	if(columns.length > 0) s["!cols"] = columns;
-	if(merges.length > 0) s["!merges"] = merges;
+	if(merges.length > 0) {
+		s["!merges"] = merges;
+		var mergeErrors = validate_merges(s, {WTF: !!(opts && (opts.WTF || opts.validateMerges))});
+		if(mergeErrors.length) s["!mergeErrors"] = mergeErrors;
+	}
+	if(rels['!id'][s['!rel']]) s['!drawel'] = rels['!id'][s['!rel']];
 	if(rels['!id'][s['!legrel']]) s['!legdrawel'] = rels['!id'][s['!legrel']];
 	return s;
 }
@@ -198,6 +204,8 @@ function parse_ws_xml_cols(columns, cols) {
 	for(var coli = 0; coli != cols.length; ++coli) {
 		var coll = parsexmltag(cols[coli], true);
 		if(coll.hidden) coll.hidden = parsexmlbool(coll.hidden);
+		if(coll.bestFit) coll.bestFit = parsexmlbool(coll.bestFit);
+		if(coll.customWidth) coll.customWidth = parsexmlbool(coll.customWidth);
 		var colm=parseInt(coll.min, 10)-1, colM=parseInt(coll.max,10)-1;
 		if(coll.outlineLevel) coll.level = (+coll.outlineLevel || 0);
 		delete coll.min; delete coll.max; coll.width = +coll.width;
@@ -325,7 +333,7 @@ return function parse_ws_xml_data(sdata/*:string*/, s, opts, guess/*:Range*/, th
 	var ri = 0, x = "", cells/*:Array<string>*/ = [], cref/*:?Array<string>*/ = [], idx=0, i=0, cc=0, d="", p/*:any*/;
 	var tag, tagr = 0, tagc = 0;
 	var sstr, ftag;
-	var fmtid = 0, fillid = 0;
+	var fmtid = 0, fillid = 0, styleid = -1;
 	var do_format = Array.isArray(styles.CellXf), cf;
 	var arrayf/*:Array<[Range, string]>*/ = [];
 	var sharedf = [];
@@ -486,10 +494,11 @@ return function parse_ws_xml_data(sdata/*:string*/, s, opts, guess/*:Range*/, th
 					p.v = RBErr[p.v]; break;
 			}
 			/* formatting */
-			fmtid = fillid = 0;
+			fmtid = fillid = 0; styleid = -1;
 			cf = null;
 			if(do_format && tag.s !== undefined) {
-				cf = styles.CellXf[tag.s];
+				styleid = parseInt(tag.s, 10);
+				cf = styles.CellXf[styleid];
 				if(cf != null) {
 					if(cf.numFmtId != null) fmtid = cf.numFmtId;
 					if(opts.cellStyles) {
@@ -497,7 +506,7 @@ return function parse_ws_xml_data(sdata/*:string*/, s, opts, guess/*:Range*/, th
 					}
 				}
 			}
-			safe_format(p, fmtid, fillid, opts, themes, styles, date1904);
+			safe_format(p, fmtid, fillid, opts, themes, styles, date1904, cf, styleid);
 			if(opts.cellDates && do_format && p.t == 'n' && fmt_is_date(table_fmt[fmtid])) { p.v = numdate(p.v + (date1904 ? 1462 : 0)); p.t = typeof p.v == "number" ? 'n' : 'd'; }
 			if(tag.cm && opts.xlmeta) {
 				var cm = (opts.xlmeta.Cell||[])[+tag.cm-1];
@@ -621,7 +630,10 @@ function write_ws_xml(idx/*:number*/, opts, wb/*:Workbook*/, rels)/*:string*/ {
 	/* dataConsolidate */
 	/* customSheetViews */
 
-	if(ws['!merges'] != null && ws['!merges'].length > 0) o[o.length] = (write_ws_xml_merges(ws['!merges']));
+	if(ws['!merges'] != null && ws['!merges'].length > 0) {
+		validate_merges(ws, {WTF:true});
+		o[o.length] = (write_ws_xml_merges(ws['!merges']));
+	}
 
 	/* phoneticPr */
 	/* conditionalFormatting */

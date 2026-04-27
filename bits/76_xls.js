@@ -99,6 +99,92 @@ function make_cell(val, ixfe, t)/*:Cell*/ {
 	return ({v:val, ixfe:ixfe, t:t}/*:any*/);
 }
 
+var XLSBorderStyle = [
+	"none", "thin", "medium", "dashed", "dotted", "thick", "double", "hair",
+	"mediumDashed", "dashDot", "mediumDashDot", "dashDotDot", "mediumDashDotDot", "slantDashDot"
+];
+var XLSAlignH = [null, "left", "center", "right", "fill", "justify", "centerContinuous", "distributed"];
+var XLSAlignV = ["top", "center", "bottom", "justify", "distributed"];
+
+function parse_BIFFChart(blob, length) {
+	var end = blob.l + length, o = {};
+	if(length >= 16) {
+		o.x = blob.read_shift(4, 'i'); o.y = blob.read_shift(4, 'i');
+		o.w = blob.read_shift(4, 'i'); o.h = blob.read_shift(4, 'i');
+	}
+	blob.l = end;
+	return o;
+}
+function parse_BIFFChartSeries(blob, length) {
+	var end = blob.l + length, o = {};
+	if(length >= 12) {
+		o.catType = blob.read_shift(2); o.valType = blob.read_shift(2);
+		o.cCat = blob.read_shift(2); o.cVal = blob.read_shift(2);
+		o.bubbleType = blob.read_shift(2); o.cBubble = blob.read_shift(2);
+	}
+	blob.l = end;
+	return o;
+}
+function parse_BIFFSeriesText(blob, length, opts) {
+	var end = blob.l + length, o = {};
+	if(length >= 2) o.id = blob.read_shift(2);
+	try { if(blob.l < end) o.text = parse_ShortXLUnicodeString(blob, end - blob.l, opts); }
+	catch(e) { blob.l = end; }
+	blob.l = end;
+	return o;
+}
+function parse_BIFFLegend(blob, length) {
+	var end = blob.l + length, o = {};
+	if(length >= 20) {
+		o.x = blob.read_shift(4, 'i'); o.y = blob.read_shift(4, 'i');
+		o.w = blob.read_shift(4, 'i'); o.h = blob.read_shift(4, 'i');
+		o.dock = blob.read_shift(1); o.spacing = blob.read_shift(1); o.flags = blob.read_shift(2);
+	}
+	blob.l = end;
+	return o;
+}
+function parse_BIFFAxis(blob, length) {
+	var end = blob.l + length, o = {};
+	if(length >= 2) o.axisType = blob.read_shift(2);
+	blob.l = end;
+	return o;
+}
+function parse_BIFFText(blob, length) {
+	var end = blob.l + length, o = {};
+	if(length >= 32) {
+		o.hAlign = blob.read_shift(1); o.vAlign = blob.read_shift(1); o.bgMode = blob.read_shift(2);
+		o.color = blob.read_shift(4); o.x = blob.read_shift(4, 'i'); o.y = blob.read_shift(4, 'i');
+		o.w = blob.read_shift(4, 'i'); o.h = blob.read_shift(4, 'i');
+	}
+	blob.l = end;
+	return o;
+}
+function parse_BIFFBRAI(blob, length) {
+	var end = blob.l + length, o = {};
+	if(length >= 6) {
+		o.id = blob.read_shift(1); o.rt = blob.read_shift(1); o.flags = blob.read_shift(2);
+		var cce = blob.read_shift(2); o.cce = cce;
+		o.formulaRaw = blob.slice(blob.l, Math.min(end, blob.l + cce));
+	}
+	blob.l = end;
+	return o;
+}
+function make_BIFFChartType(type) {
+	return function parse_BIFFChartType(blob, length) {
+		var end = blob.l + length, o = {type:type};
+		if(length >= 2) o.flags = blob.read_shift(2);
+		blob.l = end;
+		return o;
+	};
+}
+var parse_BIFFBar = make_BIFFChartType("barChart");
+var parse_BIFFLine = make_BIFFChartType("lineChart");
+var parse_BIFFPie = make_BIFFChartType("pieChart");
+var parse_BIFFArea = make_BIFFChartType("areaChart");
+var parse_BIFFScatter = make_BIFFChartType("scatterChart");
+var parse_BIFFRadar = make_BIFFChartType("radarChart");
+var parse_BIFFSurface = make_BIFFChartType("surfaceChart");
+
 // 2.3.2
 function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 	var wb = ({opts:{}}/*:any*/);
@@ -117,6 +203,8 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 	var temp_val/*:Cell*/;
 	var country;
 	var XFs = []; /* XF records */
+	var Fonts = []; /* Font records */
+	var style_cache = {};
 	var palette/*:Array<[number, number, number]>*/ = [];
 	var Workbook/*:WBWBProps*/ = ({ Sheets:[], WBProps:{date1904:false}, Views:[{}] }/*:any*/), wsprops = {};
 	var biff4w = false;
@@ -125,14 +213,118 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 		if(icv < 64) return palette[icv-8] || XLSIcv[icv];
 		return XLSIcv[icv];
 	};
+	var xls_color = function xlscolor(icv/*:?number*/) {
+		if(icv == null) return null;
+		var rgb = get_rgb(icv), out = ({indexed:icv, index:icv}/*:any*/);
+		if(rgb) out.rgb = rgb2Hex(rgb);
+		return resolve_style_color(out, themes);
+	};
+	var xls_ext_color = function xlsextcolor(ext) {
+		if(!ext) return null;
+		var out = ({}/*:any*/);
+		switch(ext.xclrType) {
+			case 0: out.auto = 1; break;
+			case 1: out = xls_color(ext.xclrValue) || {}; break;
+			case 2: out.rgb = rgb2Hex(ext.xclrValue); break;
+			case 3: out.theme = ext.xclrValue; break;
+		}
+		if(ext.nTintShade) out.tint = ext.nTintShade > 0 ? ext.nTintShade / 32767 : ext.nTintShade / 32768;
+		return resolve_style_color(out, themes);
+	};
+	var xls_font_style = function xlsfontstyle(font, xf) {
+		if(!font) return null;
+		var out = ({}/*:any*/);
+		if(font.name) out.name = font.name;
+		if(font.sz) out.sz = font.sz;
+		if(font.bold) out.bold = true;
+		if(font.italic) out.italic = true;
+		if(font.underline) out.underline = font.underline;
+		if(font.strike) out.strike = true;
+		if(font.outline) out.outline = true;
+		if(font.shadow) out.shadow = true;
+		if(font.family != null) out.family = font.family;
+		if(font.charset != null) out.charset = font.charset;
+		if(font.vertAlign == 1) out.vertAlign = "superscript";
+		else if(font.vertAlign == 2) out.vertAlign = "subscript";
+		if(xf && xf.fontScheme != null) out.scheme = xf.fontScheme == 1 ? "major" : xf.fontScheme == 2 ? "minor" : "none";
+		out.color = xls_ext_color(xf && xf.xfextFont) || xls_color(font.icv);
+		if(out.color && out.color.auto) delete out.color;
+		return out;
+	};
+	var xls_fill_style = function xlsfillstyle(xfd) {
+		if(!xfd) return null;
+		var out = ({patternType:xfd.patternType || "none"}/*:any*/);
+		var fg = xls_ext_color(xfd.xfextFore) || xls_color(xfd.icvFore);
+		var bg = xls_ext_color(xfd.xfextBack) || xls_color(xfd.icvBack);
+		if(fg) out.fgColor = fg;
+		if(bg) out.bgColor = bg;
+		if(xfd.gradientFill) out.gradientFill = xfd.gradientFill;
+		return out;
+	};
+	var xls_border_part = function xlsborderpart(style, icv, ext) {
+		if(!style) return null;
+		var out = ({style:XLSBorderStyle[style] || "thin"}/*:any*/);
+		var color = xls_ext_color(ext) || xls_color(icv);
+		if(color) out.color = color;
+		return out;
+	};
+	var xls_border_style = function xlsborderstyle(xfd) {
+		if(!xfd) return null;
+		var out = ({}/*:any*/);
+		var b;
+		if((b = xls_border_part(xfd.dgLeft, xfd.icvLeft, xfd.xfextLeft))) out.left = b;
+		if((b = xls_border_part(xfd.dgRight, xfd.icvRight, xfd.xfextRight))) out.right = b;
+		if((b = xls_border_part(xfd.dgTop, xfd.icvTop, xfd.xfextTop))) out.top = b;
+		if((b = xls_border_part(xfd.dgBottom, xfd.icvBottom, xfd.xfextBottom))) out.bottom = b;
+		if((b = xls_border_part(xfd.dgDiag, xfd.icvDiag, xfd.xfextDiag))) out.diagonal = b;
+		if(xfd.grbitDiag & 0x01) out.diagonalUp = true;
+		if(xfd.grbitDiag & 0x02) out.diagonalDown = true;
+		return keys(out).length ? out : null;
+	};
+	var xls_alignment_style = function xlsalignmentstyle(xfd) {
+		if(!xfd) return null;
+		var out = ({}/*:any*/);
+		if(XLSAlignH[xfd.alc]) out.horizontal = XLSAlignH[xfd.alc];
+		if(XLSAlignV[xfd.alcV] && xfd.alcV != 2) out.vertical = XLSAlignV[xfd.alcV];
+		if(xfd.fWrap) out.wrapText = true;
+		if(xfd.fShrinkToFit) out.shrinkToFit = true;
+		if(xfd.trot) out.textRotation = xfd.trot;
+		if(xfd.cIndent) out.indent = xfd.cIndent;
+		if(xfd.iReadOrder) out.readingOrder = xfd.iReadOrder;
+		return keys(out).length ? out : null;
+	};
+	var apply_xls_style = function applyxlsstyle(out, xf) {
+		if(!xf) return out;
+		var xfd = xf.data || {};
+		if(xf.numFmtId != null) {
+			out.numFmtId = xf.numFmtId;
+			if(table_fmt[xf.numFmtId] != null) out.numFmt = table_fmt[xf.numFmtId];
+		}
+		var font = xls_font_style(Fonts[xf.ifnt], xf);
+		if(font) out.font = font;
+		var fill = xls_fill_style(xfd);
+		if(fill) { out.fill = fill; fill_style_aliases(out, fill); }
+		var border = xls_border_style(xfd);
+		if(border) out.border = border;
+		var alignment = xls_alignment_style(xfd);
+		if(alignment) out.alignment = alignment;
+		if(xf.locked || xf.hidden) out.protection = {locked:xf.locked, hidden:xf.hidden};
+		return out;
+	};
+	var resolve_xls_style = function resolvexlsstyle(xf, styleid) {
+		if(!xf) return null;
+		if(styleid == null) styleid = XFs.indexOf(xf);
+		if(style_cache[styleid]) return style_cache[styleid];
+		var out = ({id:styleid, xf:dup(xf)}/*:any*/);
+		if(!xf.fStyle && xf.xfId != null && xf.xfId !== styleid && XFs[xf.xfId]) extend_style_obj(out, resolve_xls_style(XFs[xf.xfId], xf.xfId));
+		out.id = styleid; out.xf = dup(xf);
+		apply_xls_style(out, xf);
+		return (style_cache[styleid] = out);
+	};
 	var process_cell_style = function pcs(line/*:any*/, options) {
-		var xfd = line.XF.data;
-		if(!xfd || !xfd.patternType || !options || !options.cellStyles) return;
-		line.s = ({}/*:any*/);
-		line.s.patternType = xfd.patternType;
-		var t;
-		if((t = rgb2Hex(get_rgb(xfd.icvFore)))) { line.s.fgColor = {rgb:t}; }
-		if((t = rgb2Hex(get_rgb(xfd.icvBack)))) { line.s.bgColor = {rgb:t}; }
+		if(!line.XF || !options || !options.cellStyles) return;
+		var resolved = resolve_xls_style(line.XF, line.ixfe);
+		if(resolved) line.s = resolved;
 	};
 	var addcell = function addcell(cell/*:any*/, line/*:any*/, options/*:any*/) {
 		if(!biff4w && file_depth > 1) return;
@@ -175,7 +367,9 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 		codepage: 0, // CP from CodePage record
 		winlocked: 0, // fLockWn from WinProtect
 		cellStyles: !!options && !!options.cellStyles,
-		WTF: !!options && !!options.wtf
+		drawings: !!options && !!options.drawings,
+		charts: !!options && !!options.charts,
+		WTF: !!options && !!options.WTF
 	}/*:any*/);
 	if(options.password) opts.password = options.password;
 	var themes;
@@ -183,6 +377,9 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 	var objects = [];
 	var colinfo/*:Array<ColInfo>*/ = [], rowinfo/*:Array<RowInfo>*/ = [];
 	var seencol = false;
+	var officeart = ({blips:[]}/*:any*/);
+	var drawings/*:any*/ = null, pending_shapes/*:Array<any>*/ = [];
+	var chart_state/*:any*/ = null;
 	var supbooks = ([]/*:any*/); // 1-indexed, will hold extern names
 	supbooks.SheetNames = opts.snames;
 	supbooks.sharedf = opts.sharedf;
@@ -194,6 +391,110 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 	var BIFF2Fmt = 0, BIFF2FmtTable/*:Array<string>*/ = [];
 	var FilterDatabases = []; /* TODO: sort out supbooks and process elsewhere */
 	var last_lbl/*:?DefinedName*/;
+	var ensure_drawings = function ensuredrawings() {
+		if(!drawings) drawings = {raw:[], images:[], shapes:[], charts:[]};
+		return drawings;
+	};
+	var add_officeart = function addofficeart(val) {
+		if(!val) return;
+		if(!options.drawings && !options.charts) return;
+		if(val.groups && val.blips) officeart.blips = officeart.blips.concat(val.blips);
+		else {
+			var draw = ensure_drawings();
+			if(val.raw) draw.raw.push(val.raw);
+			if(val.blips && val.blips.length) officeart.blips = officeart.blips.concat(val.blips);
+			(val.shapes || []).forEach(function(shape) {
+				pending_shapes.push(shape);
+				var blip = shape.blipId != null ? officeart.blips[shape.blipId - 1] : null;
+				if(blip && blip.dataURI) draw.images.push({id:"xls-image-" + (draw.images.length + 1), objectId:shape.spid, biffType:"msoDrawing", anchor:shape.anchor, dataURI:blip.dataURI, contentType:blip.contentType, raw:shape.raw});
+				else draw.shapes.push({id:"xls-shape-" + (draw.shapes.length + 1), objectId:shape.spid, biffType:"msoDrawing", anchor:shape.anchor, props:shape.props, raw:shape.raw});
+			});
+		}
+	};
+	var add_imdata = function addimdata(obj) {
+		if(!obj || !obj.ImData || !obj.ImData.data) return;
+		if(!options.drawings && !options.charts) return;
+		var draw = ensure_drawings(), data = obj.ImData.data, magic = xls_find_image_magic(data, 0, data.length);
+		var shape = obj._shape || {};
+		var img = {id:"xls-imdata-" + (draw.images.length + 1), objectId:obj.cmo && obj.cmo[0], biffType:"imData", anchor:shape.anchor, raw:obj.ImData};
+		if(magic[1]) {
+			img.contentType = magic[1];
+			img.dataURI = "data:" + magic[1] + ";base64," + Base64_encode_arr(data.slice(magic[0]));
+			draw.images.push(img);
+		} else draw.shapes.push({id:"xls-imdata-" + (draw.shapes.length + 1), objectId:img.objectId, biffType:"imData", anchor:shape.anchor, raw:obj.ImData});
+	};
+	var reset_chart_state = function resetchartstate() {
+		chart_state = {type:null, title:"", series:[], seriesText:[], raw:[], current:null};
+	};
+	var push_chart_record = function pushchartrecord(rt, val) {
+		if(!chart_state) reset_chart_state();
+		chart_state.raw.push({rt:rt, v:val});
+		switch(rt) {
+			case 0x1003 /* Series */:
+				chart_state.current = {raw:val, name:"", data:[]};
+				chart_state.series.push(chart_state.current);
+				break;
+			case 0x100d /* SeriesText */:
+				if(val && val.text) {
+					if(chart_state.current && !chart_state.current.name) chart_state.current.name = val.text;
+					else if(!chart_state.title) chart_state.title = val.text;
+					else chart_state.seriesText.push(val.text);
+				}
+				break;
+			case 0x1017 /* Bar */: case 0x1018 /* Line */: case 0x1019 /* Pie */:
+			case 0x101a /* Area */: case 0x101b /* Scatter */:
+			case 0x103e /* Radar */: case 0x103f /* Surf */:
+				if(val && val.type) chart_state.type = val.type;
+				break;
+			case 0x1051 /* BRAI */:
+				if(chart_state.current) {
+					if(!chart_state.current.brai) chart_state.current.brai = [];
+					chart_state.current.brai.push(val);
+				}
+				break;
+		}
+	};
+	var build_xls_chart_model = function buildxlschartmodel(ws) {
+		if(!chart_state || !chart_state.raw.length) return null;
+		var model = ({type:chart_state.type || "barChart", title:chart_state.title, series:[], raw:chart_state.raw}/*:any*/);
+		if(ws && ws["!ref"]) {
+			var rr = safe_decode_range(ws["!ref"]), dense = ws["!data"] != null, C, R, cell, firstNumeric = false;
+			for(R = rr.s.r; R <= rr.e.r; ++R) {
+				cell = dense ? (ws["!data"][R]||[])[rr.s.c] : ws[encode_cell({r:R,c:rr.s.c})];
+				if(cell && cell.t == 'n') firstNumeric = true;
+			}
+			var labels = [];
+			if(!firstNumeric && rr.e.c > rr.s.c) for(R = rr.s.r; R <= rr.e.r; ++R) {
+				cell = dense ? (ws["!data"][R]||[])[rr.s.c] : ws[encode_cell({r:R,c:rr.s.c})];
+				labels.push(cell ? cell.w || cell.v : "");
+			}
+			for(C = rr.s.c + (labels.length ? 1 : 0); C <= rr.e.c; ++C) {
+				var vals = [], name = (chart_state.series[C - rr.s.c] || chart_state.series[C - rr.s.c - 1] || {}).name || "";
+				for(R = rr.s.r; R <= rr.e.r; ++R) {
+					cell = dense ? (ws["!data"][R]||[])[C] : ws[encode_cell({r:R,c:C})];
+					if(cell && cell.t == 'n') vals.push(cell.v);
+					else if(cell && cell.v != null && !isNaN(+cell.v)) vals.push(+cell.v);
+				}
+				if(vals.length) model.series.push({name:name, data:vals, val:{values:vals}, cat:{values:labels}});
+			}
+		}
+		if(!model.series.length) chart_state.series.forEach(function(ser) { model.series.push({name:ser.name || "", data:[], raw:ser}); });
+		return model;
+	};
+	var finalize_sheet_visuals = function finalizesheetvisuals(ws) {
+		if(ws["!merges"] && ws["!merges"].length) {
+			var mergeErrors = validate_merges(ws, {WTF: !!(options && (options.WTF || options.validateMerges))});
+			if(mergeErrors.length) ws["!mergeErrors"] = mergeErrors;
+		}
+		if(drawings && (drawings.images.length || drawings.shapes.length || drawings.charts.length || drawings.raw.length)) ws["!drawings"] = drawings;
+		var model = options.charts ? build_xls_chart_model(ws) : null;
+		if(model) {
+			ws["!chart"] = model;
+			if(!ws["!charts"]) ws["!charts"] = [];
+			if(drawings && drawings.charts.length) drawings.charts.forEach(function(ch) { if(!ch.model) ch.model = model; ws["!charts"].push(ch); });
+			else ws["!charts"].push({id:"xls-chart-" + ws["!charts"].length, title:model.title, model:model, raw:model.raw, anchor:{type:"absoluteAnchor", pos:{x:0,y:0}, ext:{cx:480*9525, cy:288*9525}}});
+		}
+	};
 
 	/* explicit override for some broken writers */
 	opts.codepage = 1200;
@@ -269,6 +570,10 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 				case 0x0043: /* BIFF2XF */ case 0x0243: /* BIFF3XF */ case 0x0443: /* BIFF4XF */
 				case 0x00e0 /* XF */:
 					XFs.push(val); break;
+				case 0x0031 /* Font */:
+					Fonts.push(val);
+					if(opts.biff >= 5 && Fonts.length == 4) Fonts.push(null);
+					break;
 				case 0x01ae /* SupBook */:
 					supbooks.push([val]);
 					supbooks[supbooks.length-1].XTI = [];
@@ -323,6 +628,7 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 						if(objects.length > 0) out["!objects"] = objects;
 						if(colinfo.length > 0) out["!cols"] = colinfo;
 						if(rowinfo.length > 0) out["!rows"] = rowinfo;
+						finalize_sheet_visuals(out);
 						Workbook.Sheets.push(wsprops);
 					}
 					if(cur_sheet === "") Preamble = out; else Sheets[cur_sheet] = out;
@@ -365,6 +671,8 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 					if(val.dt == 0x40) out["!type"] = "macro";
 					merges = [];
 					objects = [];
+					drawings = null; pending_shapes = [];
+					reset_chart_state();
 					opts.arrayf = arrayf = [];
 					colinfo = []; rowinfo = [];
 					seencol = false;
@@ -505,9 +813,21 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 
 				case 0x00e5 /* MergeCells */: merges = merges.concat(val); break;
 
-				case 0x005d /* Obj */: objects[val.cmo[0]] = opts.lastobj = val; break;
+				case 0x00eb /* MsoDrawingGroup */: add_officeart(val); break;
+				case 0x00ec /* MsoDrawing */: add_officeart(val); break;
+				case 0x005d /* Obj */:
+					objects[val.cmo[0]] = opts.lastobj = val;
+					if(pending_shapes.length) {
+						val._shape = pending_shapes.shift();
+						val._shape.object = val;
+						if(val.cmo[1] == 5) {
+							var draw = ensure_drawings();
+							draw.charts.push({id:"xls-chart-object-" + val.cmo[0], objectId:val.cmo[0], biffType:"obj", anchor:val._shape.anchor, raw:val._shape.raw});
+						}
+					}
+					break;
 				case 0x01b6 /* TxO */: opts.lastobj.TxO = val; break;
-				case 0x007f /* ImData */: opts.lastobj.ImData = val; break;
+				case 0x007f /* ImData */: opts.lastobj.ImData = val; add_imdata(opts.lastobj); break;
 
 				case 0x01b8 /* HLink */: {
 					for(rngR = val[0].s.r; rngR <= val[0].e.r; ++rngR)
@@ -547,11 +867,12 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 					}
 					cc.c.push(cmnt);
 				} break;
-				case 0x087d /* XFExt */: update_xfext(XFs[val.ixfe], val.ext); break;
+				case 0x087d /* XFExt */: update_xfext(XFs[val.ixfe], val.ext); style_cache = {}; break;
 				case 0x007d /* ColInfo */: {
 					if(!opts.cellStyles) break;
 					while(val.e >= val.s) {
 						colinfo[val.e--] = { width: val.w/256, level: (val.level || 0), hidden: !!(val.flags & 1) };
+						if(val.ixfe != null && XFs[val.ixfe]) colinfo[val.e+1].s = resolve_xls_style(XFs[val.ixfe], val.ixfe);
 						if(!seencol) { seencol = true; find_mdw_colw(val.w/256); }
 						process_col(colinfo[val.e+1]);
 					}
@@ -560,6 +881,7 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 					var rowobj = {};
 					if(val.level != null) { rowinfo[val.r] = rowobj; rowobj.level = val.level; }
 					if(val.hidden) { rowinfo[val.r] = rowobj; rowobj.hidden = true; }
+					if(opts.cellStyles && val.ixfe != null && val.ixfe != 0x0FFF && XFs[val.ixfe]) { rowinfo[val.r] = rowobj; rowobj.s = resolve_xls_style(XFs[val.ixfe], val.ixfe); }
 					if(val.hpt) {
 						rowinfo[val.r] = rowobj;
 						rowobj.hpt = val.hpt; rowobj.hpx = pt2px(val.hpt);
@@ -581,9 +903,18 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 					// $FlowIgnore
 					if(val.RTL) Workbook.Views[0].RTL = true;
 					break;
-				case 0x0092 /* Palette */: palette = val; break;
-				case 0x0896 /* Theme */: themes = val; break;
+				case 0x0092 /* Palette */: palette = val; style_cache = {}; break;
+				case 0x0896 /* Theme */: themes = val; style_cache = {}; break;
 				case 0x008c /* Country */: country = val; break;
+				case 0x1002 /* Chart */: case 0x1003 /* Series */: case 0x100d /* SeriesText */:
+				case 0x1014 /* ChartFormat */: case 0x1015 /* Legend */:
+				case 0x1017 /* Bar */: case 0x1018 /* Line */: case 0x1019 /* Pie */:
+				case 0x101a /* Area */: case 0x101b /* Scatter */:
+				case 0x101d /* Axis */: case 0x101f /* ValueRange */: case 0x1020 /* CatSerRange */:
+				case 0x1025 /* Text */: case 0x1035 /* PlotArea */: case 0x103a /* Chart3d */:
+				case 0x103e /* Radar */: case 0x103f /* Surf */:
+				case 0x1041 /* AxisParent */: case 0x1045 /* SerToCrt */: case 0x1051 /* BRAI */:
+					push_chart_record(RecordType, val); break;
 				case 0x01ba /* CodeName */: {
 					/*:: if(!Workbook.WBProps) Workbook.WBProps = {}; */
 					if(!cur_sheet) Workbook.WBProps.CodeName = val || "ThisWorkbook";

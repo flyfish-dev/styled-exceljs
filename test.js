@@ -824,6 +824,33 @@ describe('API', function() {
 		assert.equal(r.s.c, X.utils.decode_col(_c)); assert.equal(r.s.r, X.utils.decode_row(_r));
 		assert.equal(r.e.c, X.utils.decode_col(_c)); assert.equal(r.e.r, X.utils.decode_row(_r));
 	});
+	it('browser pixel conversion helpers', function() {
+		assert.equal(X.utils.row_height_to_px(15), 20);
+		assert.equal(X.utils.px_to_row_height(20), 15);
+		assert.ok(X.utils.col_width_to_px(8.43) > 0);
+		assert.ok(X.utils.px_to_col_width(64) > 0);
+	});
+	it('text width measurement and auto-fit helpers', function() {
+		var measure = function(text) { return String(text).length * 7; };
+		assert.equal(X.utils.measure_text_width("abcd", {}, {measureText: measure}), 28);
+		var ws = X.utils.aoa_to_sheet([["short", "much longer text"], ["alpha beta gamma delta", "x"]]);
+		get_cell(ws, "A2").s = {alignment:{wrapText:true}};
+		var cols = X.utils.auto_fit_columns(ws, {set:false, min:4, measureText: measure});
+		assert.ok(cols[0].wpx > 0);
+		assert.ok(cols[1].wpx > cols[0].wpx);
+		assert.ok(cols[1].bestFit);
+		assert.ok(cols[1].width <= 255);
+	});
+	it('validate_merges', function() {
+		var ws = X.utils.aoa_to_sheet([[1,2],[3,4]]);
+		ws["!merges"] = [{s:{r:0,c:0},e:{r:0,c:1}}];
+		assert.equal(X.utils.validate_merges(ws).length, 0);
+		ws["!merges"].push({s:{r:0,c:1},e:{r:1,c:1}});
+		var errs = X.utils.validate_merges(ws);
+		assert.equal(errs.length, 1);
+		assert.equal(errs[0].code, "E_MERGE_OVERLAP");
+		assert.throws(function() { X.utils.validate_merges(ws, {WTF:true}); });
+	});
 });
 
 function coreprop(props) {
@@ -1402,6 +1429,13 @@ describe('parse features', function() {
 			it('XLS  | ' + rng,function(){cmparr(rn2(rng).map(function(x){ return get_cell(wsxls,x).s; }));});
 			it('XLSX | ' + rng,function(){cmparr(rn2(rng).map(function(x){ return get_cell(wsxlsx,x).s; }));});
 		});
+		it('XLS exposes resolved style objects', function() {
+			var s = get_cell(wsxls, "A1").s;
+			assert.ok(s.font && s.font.name);
+			assert.ok(s.fill && s.fill.patternType);
+			assert.ok(s.fgColor || s.fill.fgColor);
+			assert.ok(s.protection);
+		});
 		it('different styles', function() {
 			for(var i = 0; i != ranges.length-1; ++i) {
 				for(var j = i+1; j != ranges.length; ++j) {
@@ -1543,6 +1577,56 @@ describe('write features', function() {
 
 			var str = X.utils.sheet_to_html(sheet, { sanitizeLinks: true });
 			assert.ok(str.indexOf('href="https://example.com"') > -1);
+		});
+		it('should render cell styles and browser dimensions when requested', function() {
+			var sheet = X.utils.aoa_to_sheet([["A","B"],[1,2]]);
+			get_cell(sheet, "A1").s = {
+				font: {bold:true, color:{rgb:"FF112233"}},
+				fill: {patternType:"solid", fgColor:{rgb:"FFFFEEAA"}},
+				border: {bottom:{style:"thin", color:{rgb:"FF000000"}}},
+				alignment: {horizontal:"center", wrapText:true}
+			};
+			sheet["!cols"] = [{wch:8}, {wpx:72}];
+			sheet["!rows"] = [{hpt:15}];
+			var str = X.utils.sheet_to_html(sheet, {cellStyles:true, browserPixels:true});
+			assert.ok(str.indexOf("<colgroup>") > -1);
+			assert.ok(str.indexOf('style="height:20px"') > -1);
+			assert.ok(str.indexOf("font-weight:bold") > -1);
+			assert.ok(str.indexOf("background-color:#FFEEAA") > -1);
+			assert.ok(str.indexOf("border-bottom:1px solid #000000") > -1);
+		});
+		it('should auto-fit HTML columns and respect wrap and overflow settings', function() {
+			var sheet = X.utils.aoa_to_sheet([["alpha beta gamma delta", "shrink this long text"], ["plain", "value"]]);
+			get_cell(sheet, "A1").s = {alignment:{wrapText:true}};
+			get_cell(sheet, "B1").s = {font:{sz:11}, alignment:{shrinkToFit:true}};
+			var str = X.utils.sheet_to_html(sheet, {
+				cellStyles:true,
+				browserPixels:true,
+				autoFit:{measureText:function(text) { return String(text).length * 8; }},
+				overflow:"clip"
+			});
+			assert.ok(str.indexOf("table-layout:fixed") > -1);
+			assert.ok(str.indexOf("<colgroup>") > -1);
+			assert.ok(str.indexOf("white-space:pre-wrap") > -1);
+			assert.ok(str.indexOf("overflow:hidden") > -1);
+		});
+		if(fs.existsSync(paths.cssxls)) it('should render XLS visual styles when requested', function() {
+			var wb = X.read(fs.readFileSync(paths.cssxls), {type:TYPE, cellStyles:true});
+			var str = X.utils.sheet_to_html(wb.Sheets.Sheet1, {cellStyles:true, browserPixels:true});
+			assert.ok(str.indexOf("<colgroup>") > -1);
+			assert.ok(str.indexOf("background-color:#") > -1);
+		});
+		if(!browser && fs.existsSync(dir + 'jxls-src_chart.xls')) it('should expose XLS chart SVG fallback', function() {
+			var wb = X.read(fs.readFileSync(dir + 'jxls-src_chart.xls'), {type:TYPE, charts:true, drawings:true});
+			var ws = wb.Sheets[wb.SheetNames[0]];
+			assert.ok(ws["!charts"] && ws["!charts"].length);
+			assert.ok(X.utils.sheet_to_html(ws, {charts:true, drawings:true}).indexOf("<svg") > -1);
+		});
+		if(!browser && fs.existsSync(dir + 'wps/image.xls')) it('should expose XLS drawing images', function() {
+			var wb = X.read(fs.readFileSync(dir + 'wps/image.xls'), {type:TYPE, drawings:true});
+			var ws = wb.Sheets[wb.SheetNames[0]];
+			assert.ok(ws["!drawings"] && ws["!drawings"].images && ws["!drawings"].images.length);
+			assert.ok(X.utils.sheet_to_html(ws, {drawings:true}).indexOf("<img") > -1);
 		});
 	});
 	describe('sheet range limits', function() { [

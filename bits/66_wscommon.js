@@ -40,8 +40,11 @@ function col_obj_w(C/*:number*/, col) {
 	else if(col.wch != null) wch = col.wch;
 	if(wch > -1) { p.width = char2width(wch); p.customWidth = 1; }
 	else if(col.width != null) p.width = col.width;
+	if(p.width != null) p.width = clamp_col_width(p.width);
 	if(col.hidden) p.hidden = true;
 	if(col.level != null) { p.outlineLevel = p.level = col.level; }
+	if(col.bestFit || col.bestfit) p.bestFit = true;
+	if(col.customWidth || col.customwidth) p.customWidth = 1;
 	return p;
 }
 
@@ -81,7 +84,43 @@ function get_cell_style(styles/*:Array<any>*/, cell/*:Cell*/, opts) {
 	return len;
 }
 
-function safe_format(p/*:Cell*/, fmtid/*:number*/, fillid/*:?number*/, opts, themes, styles, date1904) {
+function extend_style_obj(dst, src) {
+	if(!src) return dst;
+	keys(src).forEach(function(k) { dst[k] = dup(src[k]); });
+	return dst;
+}
+
+function fill_style_aliases(out, fill) {
+	if(!fill) return out;
+	if(fill.patternType != null) out.patternType = fill.patternType;
+	if(fill.fgColor != null) out.fgColor = dup(fill.fgColor);
+	if(fill.bgColor != null) out.bgColor = dup(fill.bgColor);
+	if(fill.gradientFill != null) out.gradientFill = dup(fill.gradientFill);
+	return out;
+}
+
+function resolve_cell_style(styles, cf, themes, styleid) {
+	if(!styles || !cf) return null;
+	var xf = ({}/*:any*/);
+	if(cf.xfId != null && styles.CellStyleXf && styles.CellStyleXf[cf.xfId]) extend_style_obj(xf, styles.CellStyleXf[cf.xfId]);
+	extend_style_obj(xf, cf);
+	var out = ({id: styleid, xf: dup(xf)}/*:any*/);
+	if(xf.numFmtId != null) {
+		out.numFmtId = xf.numFmtId;
+		if(styles.NumberFmt && styles.NumberFmt[xf.numFmtId] != null) out.numFmt = styles.NumberFmt[xf.numFmtId];
+	}
+	if(xf.fontId != null && styles.Fonts && styles.Fonts[xf.fontId]) out.font = resolve_style_obj_color(styles.Fonts[xf.fontId], themes);
+	if(xf.fillId != null && styles.Fills && styles.Fills[xf.fillId]) {
+		out.fill = resolve_style_obj_color(styles.Fills[xf.fillId], themes);
+		fill_style_aliases(out, out.fill);
+	}
+	if(xf.borderId != null && styles.Borders && styles.Borders[xf.borderId]) out.border = resolve_style_obj_color(styles.Borders[xf.borderId], themes);
+	if(xf.alignment) out.alignment = dup(xf.alignment);
+	if(xf.protection) out.protection = dup(xf.protection);
+	return out;
+}
+
+function safe_format(p/*:Cell*/, fmtid/*:number*/, fillid/*:?number*/, opts, themes, styles, date1904, cf/*:?any*/, styleid/*:?number*/) {
 	try {
 		if(opts.cellNF) p.z = table_fmt[fmtid];
 	} catch(e) { if(opts.WTF) throw e; }
@@ -107,17 +146,48 @@ function safe_format(p/*:Cell*/, fmtid/*:number*/, fillid/*:?number*/, opts, the
 		else p.w = SSF_format(fmtid,p.v,_ssfopts);
 	} catch(e) { if(opts.WTF) throw e; }
 	if(!opts.cellStyles) return;
+	if(cf != null) try {
+		var resolved = resolve_cell_style(styles, cf, themes, styleid);
+		if(resolved) { p.s = resolved; return; }
+	} catch(e) { if(opts.WTF) throw e; }
 	if(fillid != null) try {
-		p.s = styles.Fills[fillid];
-		if (p.s.fgColor && p.s.fgColor.theme && !p.s.fgColor.rgb) {
-			p.s.fgColor.rgb = rgb_tint(themes.themeElements.clrScheme[p.s.fgColor.theme].rgb, p.s.fgColor.tint || 0);
-			if(opts.WTF) p.s.fgColor.raw_rgb = themes.themeElements.clrScheme[p.s.fgColor.theme].rgb;
-		}
-		if (p.s.bgColor && p.s.bgColor.theme) {
-			p.s.bgColor.rgb = rgb_tint(themes.themeElements.clrScheme[p.s.bgColor.theme].rgb, p.s.bgColor.tint || 0);
-			if(opts.WTF) p.s.bgColor.raw_rgb = themes.themeElements.clrScheme[p.s.bgColor.theme].rgb;
-		}
+		p.s = resolve_style_obj_color(styles.Fills[fillid], themes);
 	} catch(e) { if(opts.WTF && styles.Fills) throw e; }
+}
+
+function merge_range_overlap(a, b) {
+	return !(a.e.r < b.s.r || b.e.r < a.s.r || a.e.c < b.s.c || b.e.c < a.s.c);
+}
+
+function validate_merges(ws/*:Worksheet*/, opts/*:?any*/) {
+	var merges = (ws && ws["!merges"]) || [];
+	var errors = [];
+	var ref = ws && ws["!ref"] ? safe_decode_range(ws["!ref"]) : null;
+	var seen = {};
+	for(var i = 0; i < merges.length; ++i) {
+		var m = merges[i];
+		var enc = "";
+		if(!m || !m.s || !m.e) {
+			errors.push({code:"E_MERGE_RANGE", message:"Merge range is malformed", index:i});
+			continue;
+		}
+		if(m.s.r < 0 || m.s.c < 0 || m.e.r < m.s.r || m.e.c < m.s.c) {
+			errors.push({code:"E_MERGE_RANGE", message:"Merge range is invalid", index:i, range:m});
+			continue;
+		}
+		enc = encode_range(m);
+		if(seen[enc] != null) errors.push({code:"E_MERGE_DUP", message:"Merge range is duplicated", index:i, other:seen[enc], range:enc});
+		seen[enc] = i;
+		if(ref && (m.s.r < ref.s.r || m.s.c < ref.s.c || m.e.r > ref.e.r || m.e.c > ref.e.c))
+			errors.push({code:"E_MERGE_BOUNDS", message:"Merge range exceeds worksheet range", index:i, range:enc, ref:encode_range(ref)});
+		for(var j = 0; j < i; ++j) {
+			if(!merges[j] || !merges[j].s || !merges[j].e) continue;
+			if(merge_range_overlap(m, merges[j]) && encode_range(merges[j]) != enc)
+				errors.push({code:"E_MERGE_OVERLAP", message:"Merge ranges overlap", index:i, other:j, range:enc, otherRange:encode_range(merges[j])});
+		}
+	}
+	if(errors.length && opts && opts.WTF) throw new Error(errors[0].message + " (" + (errors[0].range || errors[0].index) + ")");
+	return errors;
 }
 
 function check_ws(ws/*:Worksheet*/, sname/*:string*/, i/*:number*/) {

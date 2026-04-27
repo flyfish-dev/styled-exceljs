@@ -23,6 +23,14 @@ var utils/*:any*/ = {
 	sheet_to_html: sheet_to_html,
 	sheet_to_formulae: sheet_to_formulae,
 	sheet_to_row_object_array: sheet_to_json,
+	validate_merges: validate_merges,
+	measure_text_width: measure_text_width,
+	auto_fit_columns: auto_fit_columns,
+	autofit_columns: auto_fit_columns,
+	col_width_to_px: width2px,
+	px_to_col_width: function(px) { return char2width(px2char(px)); },
+	row_height_to_px: pt2px_browser,
+	px_to_row_height: px2pt_browser,
 	sheet_get_cell: ws_get_cell_stub,
 	book_new: book_new,
 	book_append_sheet: book_append_sheet,
@@ -38,4 +46,3 @@ var utils/*:any*/ = {
 		SHEET_VERY_HIDDEN: 2
 	}
 };
-

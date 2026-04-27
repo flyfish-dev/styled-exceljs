@@ -312,7 +312,10 @@ function parse_Row(blob) {
 	var miyRw = blob.read_shift(2);
 	blob.l += 4; // reserved(2), unused(2)
 	var flags = blob.read_shift(1); // various flags
-	blob.l += 3; // reserved(8), ixfe(12), flags(4)
+	blob.l += 1; // reserved(8)
+	var ixfe = blob.read_shift(2); // ixfe(12), flags(4)
+	z.ixfe = ixfe & 0x0FFF;
+	z.flags = (ixfe >> 12) & 0x0F;
 	if(flags & 0x07) z.level = flags & 0x07;
 	// collapsed: flags & 0x10
 	if(flags & 0x20) z.hidden = true;
@@ -395,18 +398,37 @@ function write_Window2(view) {
 function parse_Pane(/*blob, length, opts*/) {
 }
 
-/* [MS-XLS] 2.4.122 TODO */
+/* [MS-XLS] 2.4.122 */
 function parse_Font(blob, length, opts) {
+	var end = blob.l + length;
 	var o/*:any*/ = {
 		dyHeight: blob.read_shift(2),
 		fl: blob.read_shift(2)
 	};
+	o.sz = o.dyHeight / 20;
+	o.italic = !!(o.fl & 0x02);
+	o.strike = !!(o.fl & 0x08);
+	o.outline = !!(o.fl & 0x10);
+	o.shadow = !!(o.fl & 0x20);
+	o.condense = !!(o.fl & 0x40);
+	o.extend = !!(o.fl & 0x80);
 	switch((opts && opts.biff) || 8) {
 		case 2: break;
-		case 3: case 4: blob.l += 2; break;
-		default: blob.l += 10; break;
+		case 3: case 4:
+			o.icv = blob.read_shift(2);
+			break;
+		default:
+			o.icv = blob.read_shift(2);
+			o.bls = blob.read_shift(2);
+			o.bold = o.bls >= 0x2BC;
+			o.vertAlign = blob.read_shift(2);
+			o.underline = blob.read_shift(1);
+			o.family = blob.read_shift(1);
+			o.charset = blob.read_shift(1);
+			blob.l++;
+			break;
 	}
-	o.name = parse_ShortXLUnicodeString(blob, 0, opts);
+	o.name = blob.l < end ? parse_ShortXLUnicodeString(blob, end - blob.l, opts) : "";
 	return o;
 }
 function write_Font(data, opts) {
@@ -539,14 +561,13 @@ function parse_MulBlank(blob, length) {
 	return {r:rw, c:col, C:lastcol, ixfe:ixfes};
 }
 
-/* [MS-XLS] 2.5.20 2.5.249 TODO: interpret values here */
+/* [MS-XLS] 2.5.20 2.5.249 */
 function parse_CellStyleXF(blob, length, style, opts) {
 	var o = {};
 	var a = blob.read_shift(4), b = blob.read_shift(4);
 	var c = blob.read_shift(4), d = blob.read_shift(2);
 	o.patternType = XLSFillPattern[c >> 26];
 
-	if(!opts.cellStyles) return o;
 	o.alc = a & 0x07;
 	o.fWrap = (a >> 3) & 0x01;
 	o.alcV = (a >> 4) & 0x07;
@@ -583,11 +604,14 @@ function parse_CellStyleXF(blob, length, style, opts) {
 //function parse_CellXF(blob, length, opts) {return parse_CellStyleXF(blob,length,0, opts);}
 //function parse_StyleXF(blob, length, opts) {return parse_CellStyleXF(blob,length,1, opts);}
 
-/* [MS-XLS] 2.4.353 TODO: actually do this right */
+/* [MS-XLS] 2.4.353 */
 function parse_XF(blob, length, opts) {
 	var o = {};
 	o.ifnt = blob.read_shift(2); o.numFmtId = blob.read_shift(2); o.flags = blob.read_shift(2);
+	o.locked = !!(o.flags & 0x01);
+	o.hidden = !!(o.flags & 0x02);
 	o.fStyle = (o.flags >> 2) & 0x01;
+	o.xfId = o.ixfeParent = (o.flags >> 4) & 0x0FFF;
 	length -= 6;
 	o.data = parse_CellStyleXF(blob, length, o.fStyle, opts);
 	return o;
@@ -710,7 +734,7 @@ function parse_SupBook(blob, length, opts) {
 	var virtPath = parse_XLUnicodeStringNoCch(blob, cch);
 	/* TODO: 2.5.277 Virtual Path */
 	var rgst = [];
-	while(end > blob.l) rgst.push(parse_XLUnicodeString(blob));
+	while(end > blob.l) rgst.push(parse_XLUnicodeString(blob, end - blob.l, opts));
 	return [cch, ctab, virtPath, rgst];
 }
 

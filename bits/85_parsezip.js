@@ -20,6 +20,47 @@ function parse_sheet_legacy_drawing(sheet, type, zip, path, idx, opts, wb, comme
 	if(draw) parse_vml(utf8read(draw), sheet, comments||[]);
 }
 
+function drawing_mime(path) {
+	var ext = (path || "").toLowerCase().replace(/.*\./, "");
+	switch(ext) {
+		case "png": return "image/png";
+		case "gif": return "image/gif";
+		case "bmp": return "image/bmp";
+		case "svg": return "image/svg+xml";
+		case "jpg": case "jpeg": return "image/jpeg";
+		default: return "application/octet-stream";
+	}
+}
+
+function parse_sheet_drawing(sheet, type, zip, path, idx, opts, wb) {
+	if(!sheet || !sheet['!drawel']) return;
+	if(!opts || (!opts.drawings && !opts.charts)) return;
+	var dfile = resolve_path(sheet['!drawel'].Target, path);
+	var drelsp = get_rels_path(dfile);
+	var draw = parse_drawing(getzipstr(zip, dfile, true), parse_rels(getzipstr(zip, drelsp, true), dfile));
+	sheet['!drawings'] = draw;
+	if(opts.drawings && draw.images && draw.images.length) draw.images.forEach(function(img) {
+		if(!img || !img.target) return;
+		var ipath = resolve_path(img.target, dfile);
+		var ibin = getzipbin(zip, ipath, true);
+		if(ibin) img.dataURI = "data:" + drawing_mime(ipath) + ";base64," + Base64_encode_arr(ibin);
+		img.path = ipath;
+	});
+	if(opts.charts && draw.charts && draw.charts.length) {
+		sheet['!charts'] = [];
+		draw.charts.forEach(function(ch) {
+			if(!ch || !ch.target) return;
+			var chartp = resolve_path(ch.target, dfile);
+			var crelsp = get_rels_path(chartp);
+			var cws = parse_chart(getzipstr(zip, chartp, true), chartp, opts, parse_rels(getzipstr(zip, crelsp, true), chartp), wb, {"!type":"chart"});
+			ch.model = cws && cws["!chart"];
+			ch.data = cws;
+			ch.path = chartp;
+			sheet['!charts'].push(ch);
+		});
+	}
+}
+
 function safe_parse_sheet(zip, path/*:string*/, relsPath/*:string*/, sheet, idx/*:number*/, sheetRels, sheets, stype/*:string*/, opts, wb, themes, styles) {
 	try {
 		sheetRels[sheet]=parse_rels(getzipstr(zip, relsPath, true), path);
@@ -28,13 +69,19 @@ function safe_parse_sheet(zip, path/*:string*/, relsPath/*:string*/, sheet, idx/
 		switch(stype) {
 			case 'sheet':  _ws = parse_ws(data, path, idx, opts, sheetRels[sheet], wb, themes, styles); break;
 			case 'chart':  _ws = parse_cs(data, path, idx, opts, sheetRels[sheet], wb, themes, styles);
-				if(!_ws || !_ws['!drawel']) break;
+				if(!_ws || !_ws['!drawel'] || (!opts.drawings && !opts.charts)) break;
 				var dfile = resolve_path(_ws['!drawel'].Target, path);
 				var drelsp = get_rels_path(dfile);
 				var draw = parse_drawing(getzipstr(zip, dfile, true), parse_rels(getzipstr(zip, drelsp, true), dfile));
-				var chartp = resolve_path(draw, dfile);
+				_ws['!drawings'] = draw;
+				if(!opts.charts || !draw.chart) break;
+				var chartp = resolve_path(draw.chart, dfile);
 				var crelsp = get_rels_path(chartp);
 				_ws = parse_chart(getzipstr(zip, chartp, true), chartp, opts, parse_rels(getzipstr(zip, crelsp, true), chartp), wb, _ws);
+				if(draw.charts && draw.charts.length) {
+					draw.charts[0].model = _ws && _ws["!chart"];
+					_ws["!charts"] = draw.charts;
+				}
 				break;
 			case 'macro':  _ws = parse_ms(data, path, idx, opts, sheetRels[sheet], wb, themes, styles); break;
 			case 'dialog': _ws = parse_ds(data, path, idx, opts, sheetRels[sheet], wb, themes, styles); break;
@@ -58,6 +105,7 @@ function safe_parse_sheet(zip, path/*:string*/, relsPath/*:string*/, sheet, idx/
 			}
 		});
 		if(tcomments && tcomments.length) sheet_insert_comments(_ws, tcomments, true, opts.people || []);
+		if(stype == "sheet") parse_sheet_drawing(_ws, stype, zip, path, idx, opts, wb);
 		parse_sheet_legacy_drawing(_ws, stype, zip, path, idx, opts, wb, comments);
 	} catch(e) { if(opts.WTF) throw e; }
 }
@@ -307,4 +355,3 @@ function parse_xlsxcfb(cfb, _opts/*:?ParseOpts*/)/*:Workbook*/ {
 	if(einfo[0] == 0x02 && typeof decrypt_std76 !== 'undefined') return decrypt_std76(einfo[1], data.content, opts.password || "", opts);
 	throw new Error("File is password-protected");
 }
-

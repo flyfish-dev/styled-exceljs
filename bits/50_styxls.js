@@ -19,7 +19,7 @@ function parse_ColorTheme(blob/*::, length*/) { return blob.read_shift(4); }
 function parse_FullColorExt(blob/*::, length*/) {
 	var o = {};
 	o.xclrType = blob.read_shift(2);
-	o.nTintShade = blob.read_shift(2);
+	o.nTintShade = blob.read_shift(2, 'i');
 	switch(o.xclrType) {
 		case 0: blob.l += 4; break;
 		case 1: o.xclrValue = parse_IcvXF(blob, 4); break;
@@ -31,9 +31,12 @@ function parse_FullColorExt(blob/*::, length*/) {
 	return o;
 }
 
-/* 2.5.164 TODO: read 7 bits*/
+/* 2.5.164 */
 function parse_IcvXF(blob, length) {
-	return parsenoop(blob, length);
+	var end = blob.l + length;
+	var icv = blob.read_shift(2) & 0x7F;
+	blob.l = end;
+	return icv;
 }
 
 /* 2.5.280 */
@@ -71,21 +74,21 @@ function parse_XFExt(blob, length) {
 
 /* xf is an XF, see parse_XFExt for xfext */
 function update_xfext(xf, xfext) {
+	if(!xf) return;
+	if(!xf.data) xf.data = {};
 	xfext.forEach(function(xfe) {
 		switch(xfe[0]) { /* 2.5.108 extPropData */
-			case 0x04: break; /* foreground color */
-			case 0x05: break; /* background color */
-			case 0x06: break; /* gradient fill */
-			case 0x07: break; /* top cell border color */
-			case 0x08: break; /* bottom cell border color */
-			case 0x09: break; /* left cell border color */
-			case 0x0a: break; /* right cell border color */
-			case 0x0b: break; /* diagonal cell border color */
-			case 0x0d: /* text color */
-				break;
-			case 0x0e: break; /* font scheme */
-			case 0x0f: break; /* indentation level */
+			case 0x04: xf.data.xfextFore = xfe[1]; break; /* foreground color */
+			case 0x05: xf.data.xfextBack = xfe[1]; break; /* background color */
+			case 0x06: xf.data.gradientFill = xfe[1]; break; /* gradient fill */
+			case 0x07: xf.data.xfextTop = xfe[1]; break; /* top cell border color */
+			case 0x08: xf.data.xfextBottom = xfe[1]; break; /* bottom cell border color */
+			case 0x09: xf.data.xfextLeft = xfe[1]; break; /* left cell border color */
+			case 0x0a: xf.data.xfextRight = xfe[1]; break; /* right cell border color */
+			case 0x0b: xf.data.xfextDiag = xfe[1]; break; /* diagonal cell border color */
+			case 0x0d: xf.xfextFont = xfe[1]; break; /* text color */
+			case 0x0e: xf.fontScheme = xfe[1]; break; /* font scheme */
+			case 0x0f: xf.data.cIndent = xfe[1]; break; /* indentation level */
 		}
 	});
 }
-

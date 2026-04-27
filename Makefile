@@ -94,7 +94,7 @@ dist: dist-deps $(TARGET) bower.json ## Prepare JS files for distribution
 	@# extendscript
 	cat <(printf '\xEF\xBB\xBF') <(head -n 1 bits/00_header.js) shim.js $(DISTHDR) $(REQS) dist/$(TARGET) > dist/$(LIB).extendscript.js
 	@# zahl
-	cp modules/xlsx.zahl.js modules/xlsx.zahl.mjs dist/
+	if [ -f modules/xlsx.zahl.js ] && [ -f modules/xlsx.zahl.mjs ]; then cp modules/xlsx.zahl.js modules/xlsx.zahl.mjs dist/; fi
 	@#
 	rm dist/$(TARGET) dist/$(MINITGT)
 

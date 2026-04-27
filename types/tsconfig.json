@@ -1,15 +1,14 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "lib": [ "es5" ],
+        "lib": [ "es5", "es2015.promise" ],
         "noImplicitAny": true,
         "noImplicitThis": true,
         "strictNullChecks": false,
         "baseUrl": ".",
-        "paths": { "xlsx": ["."] },
+        "paths": { "styled-exceljs": ["."], "exceljs-plus": ["."], "@wybaby168/excel-js": ["."], "excel-js": ["."], "xlsx": ["."] },
         "types": [],
         "noEmit": true,
-        "strictFunctionTypes": true,
         "forceConsistentCasingInFileNames": true
     }
 }

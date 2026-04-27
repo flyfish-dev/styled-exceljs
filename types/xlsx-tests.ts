@@ -1,4 +1,4 @@
-import XLSX = require('xlsx');
+import XLSX = require('styled-exceljs');
 
 const options: XLSX.ParsingOptions = {
     cellDates: true
@@ -22,6 +22,7 @@ const jsonvalues: Tester[] = XLSX.utils.sheet_to_json<Tester>(firstworksheet);
 const csv: string = XLSX.utils.sheet_to_csv(firstworksheet);
 const txt: string = XLSX.utils.sheet_to_txt(firstworksheet);
 const formulae: string[] = XLSX.utils.sheet_to_formulae(firstworksheet);
+const styledHtml: string = XLSX.utils.sheet_to_html(firstworksheet, {cellStyles: true, browserPixels: true, charts: true, drawings: true, autoFit: true});
 const aoa: any[][] = XLSX.utils.sheet_to_json<any[]>(firstworksheet, {raw:true, header:1});
 
 const aoa2: XLSX.WorkSheet = XLSX.utils.aoa_to_sheet<number>([
@@ -68,6 +69,27 @@ function get_header_row(sheet: XLSX.WorkSheet) {
 }
 
 const headers: string[] = get_header_row(aoa2);
+
+const visualWorkbook: XLSX.WorkBook = XLSX.readFile("test.xls", {
+    cellStyles: true,
+    browserPixels: true,
+    charts: true,
+    drawings: true,
+    validateMerges: true
+});
+const visualSheet: XLSX.WorkSheet = visualWorkbook.Sheets[visualWorkbook.SheetNames[0]];
+const styleObject: XLSX.CellStyle = visualSheet["A1"].s;
+const styleColor: XLSX.StyleColor = styleObject.font && styleObject.font.color || {};
+const htmlPx: number = XLSX.utils.col_width_to_px(8.43) + XLSX.utils.row_height_to_px(15);
+const mergeErrors: XLSX.MergeError[] = XLSX.utils.validate_merges(visualSheet);
+const measuredWidth: number = XLSX.utils.measure_text_width("Auto fit", styleObject, {measureText: function(text: string) { return text.length * 7; }});
+const fitColumns: XLSX.ColInfo[] = XLSX.utils.auto_fit_columns(visualSheet, {set: false, measureText: function(text: string) { return text.length * 7; }});
+const fitColumnsAlias: XLSX.ColInfo[] = XLSX.utils.autofit_columns(visualSheet, {set: false});
+const firstChart: XLSX.ChartInfo = visualSheet["!charts"] && visualSheet["!charts"][0];
+const chartModel: XLSX.ChartModel = firstChart && firstChart.model || { series: [] };
+const firstSeries: XLSX.ChartSeries = chartModel.series && chartModel.series[0];
+const firstDrawing: XLSX.DrawingImage = visualSheet["!drawings"] && visualSheet["!drawings"].images && visualSheet["!drawings"].images[0];
+console.log(styledHtml, styleColor.rgb, htmlPx, mergeErrors.length, measuredWidth, fitColumns[0] && fitColumns[0].wpx, fitColumnsAlias.length, firstSeries && firstSeries.name, firstDrawing && firstDrawing.dataURI);
 
 const CFB = XLSX.CFB;
 const vbawb = XLSX.readFile("test.xlsm", {bookVBA:true});
