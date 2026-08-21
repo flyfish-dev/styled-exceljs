@@ -28,6 +28,7 @@ function drawing_mime(path) {
 		case "bmp": return "image/bmp";
 		case "svg": return "image/svg+xml";
 		case "jpg": case "jpeg": return "image/jpeg";
+		case "tif": case "tiff": return "image/tiff";
 		default: return "application/octet-stream";
 	}
 }
@@ -43,7 +44,9 @@ function parse_sheet_drawing(sheet, type, zip, path, idx, opts, wb) {
 		if(!img || !img.target) return;
 		var ipath = resolve_path(img.target, dfile);
 		var ibin = getzipbin(zip, ipath, true);
-		if(ibin) img.dataURI = "data:" + drawing_mime(ipath) + ";base64," + Base64_encode_arr(ibin);
+		var contentType = drawing_mime(ipath);
+		if(ibin) img.dataURI = "data:" + contentType + ";base64," + Base64_encode_arr(ibin);
+		img.contentType = contentType;
 		img.path = ipath;
 	});
 	if(opts.charts && draw.charts && draw.charts.length) {

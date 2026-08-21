@@ -4,7 +4,7 @@
 /*global global, exports, module, require:false, process:false, Buffer:false, ArrayBuffer:false, DataView:false, Deno:false, Set:false, Float32Array:false */
 var XLSX = {};
 function make_xlsx_lib(XLSX){
-XLSX.version = '0.21.1';
+XLSX.version = '0.21.2';
 var current_codepage = 1200, current_ansi = 1252;
 /*:: declare var cptable:any; */
 /*global cptable:true, window */
@@ -7290,7 +7290,7 @@ function resolve_style_obj_color(obj, themes) {
 
 /* 18.3.1.13 width calculations */
 /* [MS-OI29500] 2.1.595 Column Width & Formatting */
-var DEF_MDW = 6, MAX_MDW = 15, MIN_MDW = 1, MDW = DEF_MDW;
+var DEF_MDW = 7, MAX_MDW = 15, MIN_MDW = 1, MDW = DEF_MDW;
 function width2px(width) { return Math.floor(( width + (Math.round(128/MDW))/256 )* MDW ); }
 function px2char(px) { return (Math.floor((px - 5)/MDW * 100 + 0.5))/100; }
 function char2width(chr) { return (Math.round((chr * MDW + 5)/MDW*256))/256; }
@@ -9671,7 +9671,8 @@ function parse_ws_xml_cols(columns, cols) {
 		var colm=parseInt(coll.min, 10)-1, colM=parseInt(coll.max,10)-1;
 		if(coll.outlineLevel) coll.level = (+coll.outlineLevel || 0);
 		delete coll.min; delete coll.max; coll.width = +coll.width;
-		if(!seencol && coll.width) { seencol = true; find_mdw_colw(coll.width); }
+		/* OOXML widths share the workbook Normal-font MDW; do not infer a different scale per sheet. */
+		if(!seencol && coll.width) { seencol = true; MDW = DEF_MDW; }
 		process_col(coll);
 		while(colm <= colM) columns[colm++] = dup(coll);
 	}
@@ -12719,6 +12720,7 @@ function drawing_mime(path) {
 		case "bmp": return "image/bmp";
 		case "svg": return "image/svg+xml";
 		case "jpg": case "jpeg": return "image/jpeg";
+		case "tif": case "tiff": return "image/tiff";
 		default: return "application/octet-stream";
 	}
 }
@@ -12734,7 +12736,9 @@ function parse_sheet_drawing(sheet, type, zip, path, idx, opts, wb) {
 		if(!img || !img.target) return;
 		var ipath = resolve_path(img.target, dfile);
 		var ibin = getzipbin(zip, ipath, true);
-		if(ibin) img.dataURI = "data:" + drawing_mime(ipath) + ";base64," + Base64_encode_arr(ibin);
+		var contentType = drawing_mime(ipath);
+		if(ibin) img.dataURI = "data:" + contentType + ";base64," + Base64_encode_arr(ibin);
+		img.contentType = contentType;
 		img.path = ipath;
 	});
 	if(opts.charts && draw.charts && draw.charts.length) {

@@ -209,7 +209,8 @@ function parse_ws_xml_cols(columns, cols) {
 		var colm=parseInt(coll.min, 10)-1, colM=parseInt(coll.max,10)-1;
 		if(coll.outlineLevel) coll.level = (+coll.outlineLevel || 0);
 		delete coll.min; delete coll.max; coll.width = +coll.width;
-		if(!seencol && coll.width) { seencol = true; find_mdw_colw(coll.width); }
+		/* OOXML widths share the workbook Normal-font MDW; do not infer a different scale per sheet. */
+		if(!seencol && coll.width) { seencol = true; MDW = DEF_MDW; }
 		process_col(coll);
 		while(colm <= colM) columns[colm++] = dup(coll);
 	}

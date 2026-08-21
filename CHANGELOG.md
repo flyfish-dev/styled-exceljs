@@ -9,6 +9,18 @@ changes may not be included if they are not expected to break existing code.
 * Proper handling of XLSX encoded entities (h/t @inreoh)
 * Proper handling of invalid DIF sheets that match heuristics (h/t @lowkeyfish)
 
+## v0.21.2
+
+* Preserve TIFF drawing MIME metadata for XLSX images so browser renderers can
+  select an explicit decoder instead of receiving `application/octet-stream`
+* Keep workbook column-width measurement stable across sheets and tolerate
+  missing Numbers format tables
+
+中文摘要：
+
+* XLSX 中的 TIFF 图片现在会保留 `image/tiff` 类型，便于浏览器渲染器按需解码
+* 稳定多工作表列宽测量，并容错缺失的 Numbers 格式表
+
 ## v0.21.1
 
 * Added browser-aware text measurement and `XLSX.utils.auto_fit_columns` for
