@@ -1,6 +1,6 @@
 {
 	"name": "styled-exceljs",
-	"version": "0.21.2",
+	"version": "0.21.3",
 	"author": "sheetjs",
 	"description": "SheetJS CE fork with enhanced XLS/XLSX styling and browser rendering",
 	"keywords": [
@@ -141,6 +141,7 @@
 	},
 	"scripts": {
 		"test": "make travis",
+		"test:security": "node tests/security-prototype-pollution.mjs",
 		"build": "make",
 		"lint": "make fullint",
 		"dtslint": "dtslint types"

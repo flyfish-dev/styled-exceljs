@@ -1,6 +1,6 @@
 {
   "name": "js-xlsx",
-  "version": "0.21.2",
+  "version": "0.21.3",
   "homepage": "https://github.com/SheetJS/js-xlsx",
   "main": ["xlsx.js"],
   "ignore": [

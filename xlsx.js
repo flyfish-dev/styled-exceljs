@@ -4,7 +4,7 @@
 /*global global, exports, module, require:false, process:false, Buffer:false, ArrayBuffer:false, DataView:false, Deno:false, Set:false, Float32Array:false */
 var XLSX = {};
 function make_xlsx_lib(XLSX){
-XLSX.version = '0.21.2';
+XLSX.version = '0.21.3';
 var current_codepage = 1200, current_ansi = 1252;
 /*global cptable:true, window */
 var $cptable;
@@ -24957,7 +24957,9 @@ function parse_content_xml(d, _opts, _nfm) {
 				if(Rn[1]==='/') break;
 				try {
 					_Ref = ods_to_csf_3D(parsexmltag(Rn[0])['target-range-address']);
-					Sheets[_Ref[0]]['!autofilter'] = { ref:_Ref[1] };
+					if(Object.prototype.hasOwnProperty.call(Sheets, _Ref[0]) && Sheets[_Ref[0]]) {
+						Sheets[_Ref[0]]['!autofilter'] = { ref:_Ref[1] };
+					}
 				} catch(e) {/* empty */}
 				break;
 

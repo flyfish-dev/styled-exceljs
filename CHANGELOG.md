@@ -4,6 +4,11 @@ This log is intended to keep track of backwards-incompatible changes, including
 but not limited to API changes and file location changes.  Minor behavioral
 changes may not be included if they are not expected to break existing code.
 
+## v0.21.3
+
+* Prevent ODS database ranges from writing inherited sheet names such as
+  `__proto__` through the workbook sheet map
+
 * Sheet Visibility for ODS / FODS (h/t @edemaine)
 * HTML DOM ingress support formulae (`data-f`)
 * Proper handling of XLSX encoded entities (h/t @inreoh)
