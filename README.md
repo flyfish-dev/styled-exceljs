@@ -39,7 +39,7 @@ npm install styled-exceljs
 ```
 
 This build extends the SheetJS worksheet model for browser-oriented rendering of
-XLSX/XLS workbooks.  The default read path remains lightweight and compatible.
+XLSX/XLS workbooks.  The default read path stays lightweight and compatible.
 Visual metadata is exposed when explicit options are enabled:
 
 ```js
@@ -76,10 +76,10 @@ The following public worksheet fields are populated when requested:
   widths with wrap, overflow, shrink-to-fit, and merge-span handling.
 
 `XLSX.utils.validate_merges(ws, opts)` validates merge ranges and reports
-duplicate, overlapping, invalid, or out-of-bounds ranges.  Passing
-`{WTF:true}` or reading with `{validateMerges:true}` throws on invalid merges.
+duplicate, overlapping, malformed, or out-of-bounds ranges.  Passing
+`{WTF:true}` or reading with `{validateMerges:true}` throws on malformed merges.
 
-See [docs/visual-fidelity.md](docs/visual-fidelity.md) for the full data
+See the [visual fidelity guide](docs/visual-fidelity.md) for the full data
 structure reference and release notes for unsupported fallback behavior.
 
 ## 中文说明
@@ -107,7 +107,7 @@ npm install styled-exceljs
   收缩适应和合并跨度计算最优列宽。
 
 完整中文数据结构、选项说明和渲染行为请参考
-[docs/visual-fidelity.zh-CN.md](docs/visual-fidelity.zh-CN.md)。
+[中文视觉保真指南](docs/visual-fidelity.zh-CN.md)。
 
 ## Constellation
 
@@ -123,7 +123,7 @@ processing library
 - [`codepage`](https://git.sheetjs.com/SheetJS/js-codepage): Legacy text
 encodings for XLS and other legacy spreadsheet formats
 
-- [`dta`](packages/dta): Stata DTA file processor
+- [Stata file processor](packages/dta)
 
 ## License
 

@@ -6,8 +6,15 @@ changes may not be included if they are not expected to break existing code.
 
 ## v0.21.3
 
-* Prevent ODS database ranges from writing inherited sheet names such as
-  `__proto__` through the workbook sheet map
+* Store document-controlled worksheet names in own-property-only maps and
+  reject inherited lookups, preventing `__proto__` prototype pollution across
+  XLSX, XLS, XLML, ODS/FODS, Lotus, and workbook write paths
+* Replace high-complexity XML tag stripping and AutoFilter matching with
+  linear-time parsers for untrusted workbook content
+* Escape rich-text runs, HTML attributes, font CSS strings, and links at the
+  HTML output boundary; block unsafe link protocols by default
+* Validate dense worksheet origins before array writes and cover the security
+  boundary with malicious file and HTML-output regression tests
 
 * Sheet Visibility for ODS / FODS (h/t @edemaine)
 * HTML DOM ingress support formulae (`data-f`)

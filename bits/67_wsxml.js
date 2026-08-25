@@ -6,7 +6,25 @@ var mergecregex = /<(?:\w+:)?mergeCell ref=["'][A-Z0-9:]+['"]\s*[\/]?>/g;
 var hlinkregex = /<(?:\w+:)?hyperlink [^<>]*>/mg;
 var dimregex = /"(\w*:\w*)"/;
 var colregex = /<(?:\w+:)?col\b[^<>]*[\/]?>/g;
-var afregex = /<(?:\w:)?autoFilter[^>]*([\/]|>([\s\S]*)<\/(?:\w:)?autoFilter)>/g;
+function match_ws_xml_autofilter(data/*:string*/)/*:?string*/ {
+	var paired = str_match_xml_ns(data, "autoFilter");
+	if(paired) return paired[0];
+	var start = 0;
+	while((start = data.indexOf("<", start)) != -1) {
+		var end = data.indexOf(">", start + 1);
+		if(end == -1) return null;
+		var tag = data.slice(start + 1, end), p = 0;
+		while(p < tag.length && tag.charCodeAt(p) <= 32) ++p;
+		var nameEnd = p;
+		while(nameEnd < tag.length && tag.charCodeAt(nameEnd) > 32 && tag.charAt(nameEnd) != "/") ++nameEnd;
+		var name = tag.slice(p, nameEnd), colon = name.indexOf(":");
+		if(colon != -1) name = name.slice(colon + 1);
+		var tail = tag.slice(nameEnd).trim();
+		if(name == "autoFilter" && tail.charAt(tail.length - 1) == "/") return data.slice(start, end + 1);
+		start = end + 1;
+	}
+	return null;
+}
 var marginregex= /<(?:\w+:)?pageMargins[^<>]*\/>/g;
 var sheetprregex = /<(?:\w+:)?sheetPr\b[^<>]*?\/>/;
 
@@ -55,8 +73,8 @@ function parse_ws_xml(data/*:?string*/, opts, idx/*:number*/, rels, wb/*:WBWBPro
 	if(mtch) parse_ws_xml_data(mtch[1], s, opts, refguess, themes, styles, wb);
 
 	/* 18.3.1.2  autoFilter CT_AutoFilter */
-	var afilter = data2.match(afregex);
-	if(afilter) s['!autofilter'] = parse_ws_xml_autofilter(afilter[0]);
+	var afilter = match_ws_xml_autofilter(data2);
+	if(afilter) s['!autofilter'] = parse_ws_xml_autofilter(afilter);
 
 	/* 18.3.1.55 mergeCells CT_MergeCells */
 	var merges/*:Array<Range>*/ = [];
@@ -581,7 +599,7 @@ function write_ws_xml(idx/*:number*/, opts, wb/*:Workbook*/, rels)/*:string*/ {
 		'xmlns:r': XMLNS.r
 	})];
 	var s = wb.SheetNames[idx], sidx = 0, rdata = "";
-	var ws = wb.Sheets[s];
+	var ws = sheet_map_get(wb.Sheets, s);
 	if(ws == null) ws = {};
 	var ref = ws['!ref'] || 'A1';
 	var range = safe_decode_range(ref);

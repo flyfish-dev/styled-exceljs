@@ -19,9 +19,15 @@ PivotTable
 PivotTables
 Quattro
 SpreadsheetML
+Stata
 Unhide
 VBA
 Visicalc
+visual-fidelity
+fidelity
+zh-CN
+dta
+DTA
 chartsheet
 chartsheets
 dialogsheet
@@ -186,4 +192,3 @@ vscode-data-preview
  - demos/xhr/README.md
 axios
 superagent
-

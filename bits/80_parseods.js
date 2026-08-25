@@ -7,7 +7,7 @@ function parse_text_p(text/*:string*//*::, tag*/)/*:Array<any>*/ {
 		.replace(/<text:s text:c="(\d+)"\/>/g, function($$,$1) { return Array(parseInt($1,10)+1).join(" "); })
 		.replace(/<text:tab[^<>]*\/>/g,"\t")
 		.replace(/<text:line-break\/>/g,"\n");
-	var v = unescapexml(fixed.replace(/<[^<>]*>/g,""));
+	var v = unescapexml(strip_xml_tags(fixed));
 
 	return [v];
 }
@@ -244,7 +244,7 @@ function parse_content_xml(d/*:string*/, _opts, _nfm)/*:Workbook*/ {
 		var nfidx, NF = "", pidx = 0;
 		var sheetag/*:: = {name:"", '名称':""}*/;
 		var rowtag/*:: = {'行号':""}*/;
-		var Sheets = {}, SheetNames/*:Array<string>*/ = [];
+		var Sheets = sheet_map_new(), SheetNames/*:Array<string>*/ = [];
 		var ws = ({}/*:any*/); if(opts.dense) ws["!data"] = [];
 		var Rn, q/*:: :any = ({t:"", v:null, z:null, w:"",c:[],}:any)*/;
 		var ctag = ({value:""}/*:any*/), ctag2 = ({}/*:any*/);
@@ -281,7 +281,7 @@ function parse_content_xml(d/*:string*/, _opts, _nfm)/*:Workbook*/ {
 					sheetag.name = sheetag['名称'] || sheetag.name;
 					if(typeof JSON !== 'undefined') JSON.stringify(sheetag);
 					SheetNames.push(sheetag.name);
-					Sheets[sheetag.name] = ws;
+					sheet_map_set(Sheets, sheetag.name, ws);
 					WB.Sheets.push({
 						/* TODO: CodeName */
 						Hidden: (tstyles[sheetag["style-name"]] && tstyles[sheetag["style-name"]]["display"] ? (parsexmlbool(tstyles[sheetag["style-name"]]["display"]) ? 0 : 1) : 0)

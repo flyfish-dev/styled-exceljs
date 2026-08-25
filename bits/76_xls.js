@@ -188,7 +188,7 @@ var parse_BIFFSurface = make_BIFFChartType("surfaceChart");
 // 2.3.2
 function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 	var wb = ({opts:{}}/*:any*/);
-	var Sheets = {};
+	var Sheets = sheet_map_new();
 	if(DENSE != null && options.dense == null) options.dense = DENSE;
 	var out/*:Worksheet*/ = ({}/*:any*/); if(options.dense) out["!data"] = [];
 	var Directory = {};
@@ -631,7 +631,7 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 						finalize_sheet_visuals(out);
 						Workbook.Sheets.push(wsprops);
 					}
-					if(cur_sheet === "") Preamble = out; else Sheets[cur_sheet] = out;
+					if(cur_sheet === "") Preamble = out; else sheet_map_set(Sheets, cur_sheet, out);
 					out = ({}/*:any*/); if(options.dense) out["!data"] = [];
 				} break;
 				case 0x0009: case 0x0209: case 0x0409: case 0x0809 /* BOF */: {
@@ -931,10 +931,13 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 	if(!wb.SheetNames.length && Preamble["!ref"]) {
 		wb.SheetNames.push("Sheet1");
 		/*jshint -W069 */
-		if(wb.Sheets) wb.Sheets["Sheet1"] = Preamble;
+		if(wb.Sheets) sheet_map_set(wb.Sheets, "Sheet1", Preamble);
 		/*jshint +W069 */
 	} else wb.Preamble=Preamble;
-	if(wb.Sheets) FilterDatabases.forEach(function(r,i) { wb.Sheets[wb.SheetNames[i]]['!autofilter'] = r; });
+	if(wb.Sheets) FilterDatabases.forEach(function(r,i) {
+		var ws = sheet_map_get(wb.Sheets, wb.SheetNames[i]);
+		if(ws) ws['!autofilter'] = r;
+	});
 	wb.Strings = sst;
 	wb.SSF = dup(table_fmt);
 	if(opts.enc) wb.Encryption = opts.enc;

@@ -56,7 +56,7 @@ function write_zip_xlsb(wb/*:Workbook*/, opts/*:WriteOpts*/)/*:ZIP*/ {
 
 	for(rId=1;rId <= wb.SheetNames.length; ++rId) {
 		var wsrels = {'!id':{}};
-		var ws = wb.Sheets[wb.SheetNames[rId-1]];
+		var ws = sheet_map_get(wb.Sheets, wb.SheetNames[rId-1]);
 		var _type = (ws || {})["!type"] || "sheet";
 		switch(_type) {
 		case "chart":
@@ -212,7 +212,7 @@ function write_zip_xlsx(wb/*:Workbook*/, opts/*:WriteOpts*/)/*:ZIP*/ {
 
 	for(rId=1;rId <= wb.SheetNames.length; ++rId) {
 		var wsrels = {'!id':{}};
-		var ws = wb.Sheets[wb.SheetNames[rId-1]];
+		var ws = sheet_map_get(wb.Sheets, wb.SheetNames[rId-1]);
 		var _type = (ws || {})["!type"] || "sheet";
 		switch(_type) {
 		case "chart":
@@ -308,4 +308,3 @@ function write_zip_xlsx(wb/*:Workbook*/, opts/*:WriteOpts*/)/*:ZIP*/ {
 	delete opts.revssf; delete opts.ssf;
 	return zip;
 }
-

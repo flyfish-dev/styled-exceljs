@@ -90,7 +90,7 @@ function safe_parse_sheet(zip, path/*:string*/, relsPath/*:string*/, sheet, idx/
 			case 'dialog': _ws = parse_ds(data, path, idx, opts, sheetRels[sheet], wb, themes, styles); break;
 			default: throw new Error("Unrecognized sheet type " + stype);
 		}
-		sheets[sheet] = _ws;
+		sheet_map_set(sheets, sheet, _ws);
 
 		/* scan rels for comments and threaded comments */
 		var comments = [], tcomments = [];
@@ -213,7 +213,7 @@ function parse_zip(zip/*:ZIP*/, opts/*:?ParseOpts*/)/*:Workbook*/ {
 		if(opts.bookSheets && typeof sheets !== 'undefined') out.SheetNames = sheets;
 		if(opts.bookSheets ? out.SheetNames : opts.bookProps) return out;
 	}
-	sheets = {};
+	sheets = sheet_map_new();
 
 	var deps = {};
 	if(opts.bookDeps && dir.calcchain) deps=parse_cc(getzipdata(zip, strip_front_slash(dir.calcchain)),dir.calcchain,opts);

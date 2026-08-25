@@ -208,6 +208,7 @@ function sheet_add_json(_ws/*:?Worksheet*/, js/*:Array<any>*/, opts)/*:Worksheet
 			var _origin/*:CellAddress*/ = typeof o.origin == "string" ? decode_cell(o.origin) : o.origin;
 			_R = _origin.r; _C = _origin.c;
 		}
+		if(!isFinite(_R) || _R !== Math.floor(_R) || _R < -1 || !isFinite(_C) || _C !== Math.floor(_C) || _C < 0) throw new Error("Invalid origin");
 	}
 	var range/*:Range*/ = ({s: {c:0, r:0}, e: {c:_C, r:_R + js.length - 1 + offset}}/*:any*/);
 	if(ws['!ref']) {
@@ -299,7 +300,7 @@ function wb_sheet_idx(wb/*:Workbook*/, sh/*:number|string*/) {
 
 /* simple blank or single-sheet workbook object */
 function book_new(ws/*:?Worksheet*/, wsname/*:?string*/)/*:Workbook*/ {
-	var wb = { SheetNames: [], Sheets: {} };
+	var wb = { SheetNames: [], Sheets: sheet_map_new() };
 	if(ws) book_append_sheet(wb, ws, wsname || "Sheet1");
 	return wb;
 }
@@ -319,7 +320,7 @@ function book_append_sheet(wb/*:Workbook*/, ws/*:Worksheet*/, name/*:?string*/, 
 	if(wb.SheetNames.indexOf(name) >= 0) throw new Error("Worksheet with name |" + name + "| already exists!");
 
 	wb.SheetNames.push(name);
-	wb.Sheets[name] = ws;
+	sheet_map_set(wb.Sheets, name, ws);
 	return name;
 }
 
@@ -386,4 +387,3 @@ function sheet_set_array_formula(ws/*:Worksheet*/, range, formula/*:string*/, dy
 	ws["!ref"] = encode_range(wsr);
 	return ws;
 }
-

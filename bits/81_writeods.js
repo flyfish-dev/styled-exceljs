@@ -327,7 +327,7 @@ var write_content_ods/*:{(wb:any, opts:any):string}*/ = /* @__PURE__ */(function
 
 		/* column styles */
 		var cidx = 0;
-		wb.SheetNames.map(function(n) { return wb.Sheets[n]; }).forEach(function(ws) {
+		wb.SheetNames.map(function(n) { return sheet_map_get(wb.Sheets, n); }).forEach(function(ws) {
 			if(!ws) return;
 			if(ws["!cols"]) {
 				for(var C = 0; C < ws["!cols"].length; ++C) if(ws["!cols"][C]) {
@@ -346,7 +346,7 @@ var write_content_ods/*:{(wb:any, opts:any):string}*/ = /* @__PURE__ */(function
 
 		/* row styles */
 		var ridx = 0;
-		wb.SheetNames.map(function(n) { return wb.Sheets[n]; }).forEach(function(ws) {
+		wb.SheetNames.map(function(n) { return sheet_map_get(wb.Sheets, n); }).forEach(function(ws) {
 			if(!ws) return;
 			if(ws["!rows"]) {
 				for(var R = 0; R < ws["!rows"].length; ++R) if(ws["!rows"][R]) {
@@ -379,7 +379,7 @@ var write_content_ods/*:{(wb:any, opts:any):string}*/ = /* @__PURE__ */(function
 		/* number formats, table cells, text */
 		var nfs = {};
 		var nfi = 69;
-		wb.SheetNames.map(function(n) { return wb.Sheets[n]; }).forEach(function(ws) {
+		wb.SheetNames.map(function(n) { return sheet_map_get(wb.Sheets, n); }).forEach(function(ws) {
 			if(!ws) return;
 			var dense = (ws["!data"] != null);
 			if(!ws["!ref"]) return;
@@ -462,7 +462,7 @@ var write_content_ods/*:{(wb:any, opts:any):string}*/ = /* @__PURE__ */(function
 		o.push('  <office:body>\n');
 		o.push('    <office:spreadsheet>\n');
 		if(((wb.Workbook||{}).WBProps||{}).date1904) o.push('      <table:calculation-settings table:case-sensitive="false" table:search-criteria-must-apply-to-whole-cell="true" table:use-wildcards="true" table:use-regular-expressions="false" table:automatic-find-labels="false">\n        <table:null-date table:date-value="1904-01-01"/>\n      </table:calculation-settings>\n');
-		for(var i = 0; i != wb.SheetNames.length; ++i) o.push(write_ws(wb.Sheets[wb.SheetNames[i]], wb, i, opts, nfs, ((wb.Workbook||{}).WBProps||{}).date1904));
+		for(var i = 0; i != wb.SheetNames.length; ++i) o.push(write_ws(sheet_map_get(wb.Sheets, wb.SheetNames[i]), wb, i, opts, nfs, ((wb.Workbook||{}).WBProps||{}).date1904));
 		if((wb.Workbook||{}).Names) o.push(write_names_ods(wb.Workbook.Names, wb.SheetNames, -1));
 		o.push('    </office:spreadsheet>\n');
 		o.push('  </office:body>\n');
@@ -514,4 +514,3 @@ function write_ods(wb/*:any*/, opts/*:any*/) {
 
 	return zip;
 }
-

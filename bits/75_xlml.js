@@ -112,7 +112,7 @@ function parse_xlml_data(xml, ss, data, cell/*:any*/, base, styles, csty, row, a
 			break;
 		case 'String':
 			cell.t = 's'; cell.r = xlml_fixstr(unescapexml(xml));
-			cell.v = (xml.indexOf("<") > -1 ? unescapexml(ss||xml).replace(/<[^<>]*>/g, "") : cell.r); // todo: BR etc
+			cell.v = (xml.indexOf("<") > -1 ? strip_xml_tags(unescapexml(ss||xml)) : cell.r); // todo: BR etc
 			break;
 		case 'DateTime':
 			if(xml.slice(-1) != "Z") xml += "Z";
@@ -207,7 +207,7 @@ function parse_xlml_xml(d, _opts)/*:Workbook*/ {
 	var Rn;
 	var state = [], tmp;
 	if(DENSE != null && opts.dense == null) opts.dense = DENSE;
-	var sheets = {}, sheetnames/*:Array<string>*/ = [], cursheet/*:Worksheet*/ = ({}), sheetname = ""; if(opts.dense) cursheet["!data"] = [];
+	var sheets = sheet_map_new(), sheetnames/*:Array<string>*/ = [], cursheet/*:Worksheet*/ = ({}), sheetname = ""; if(opts.dense) cursheet["!data"] = [];
 	var cell = ({}/*:any*/), row = {};// eslint-disable-line no-unused-vars
 	var dtag = xlml_parsexmltag('<Data ss:Type="String">'), didx = 0;
 	var c = 0, r = 0;
@@ -314,7 +314,7 @@ function parse_xlml_xml(d, _opts)/*:Workbook*/ {
 				if(merges.length) cursheet["!merges"] = merges;
 				if(cstys.length > 0) cursheet["!cols"] = cstys;
 				if(rowinfo.length > 0) cursheet["!rows"] = rowinfo;
-				sheets[sheetname] = cursheet;
+				sheet_map_set(sheets, sheetname, cursheet);
 			} else {
 				refguess = {s: {r:2000000, c:2000000}, e: {r:0, c:0} };
 				r = c = 0;
@@ -1219,7 +1219,7 @@ function write_ws_xlml_table(ws/*:Worksheet*/, opts, idx/*:number*/, wb/*:Workbo
 function write_ws_xlml(idx/*:number*/, opts, wb/*:Workbook*/)/*:string*/ {
 	var o/*:Array<string>*/ = [];
 	var s = wb.SheetNames[idx];
-	var ws = wb.Sheets[s];
+	var ws = sheet_map_get(wb.Sheets, s);
 
 	var t/*:string*/ = ws ? write_ws_xlml_names(ws, opts, idx, wb) : "";
 	if(t.length > 0) o.push("<Names>" + t + "</Names>");

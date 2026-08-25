@@ -45,7 +45,7 @@ var WK_ = /*#__PURE__*/(function() {
 		var o = opts || {};
 		if(DENSE != null && o.dense == null) o.dense = DENSE;
 		var s/*:Worksheet*/ = ({}/*:any*/), n = "Sheet1", next_n = "", sidx = 0;
-		var sheets = {}, snames = [], realnames = [], sdata = [];
+		var sheets = sheet_map_new(), snames = [], realnames = [], sdata = [];
 		if(o.dense) sdata = s["!data"] = [];
 
 		var refguess = {s: {r:0, c:0}, e: {r:0, c:0} };
@@ -90,7 +90,7 @@ var WK_ = /*#__PURE__*/(function() {
 					if(o.qpro) {
 						if(val[3] > sidx) {
 							s["!ref"] = encode_range(refguess);
-							sheets[n] = s;
+							sheet_map_set(sheets, n, s);
 							snames.push(n);
 							s = ({}/*:any*/); if(o.dense) sdata = s["!data"] = [];
 							refguess = {s: {r:0, c:0}, e: {r:0, c:0} };
@@ -141,7 +141,7 @@ var WK_ = /*#__PURE__*/(function() {
 				case 0x28: /* FORMULA28 */
 					if(val[3] > sidx) {
 						s["!ref"] = encode_range(refguess);
-						sheets[n] = s;
+							sheet_map_set(sheets, n, s);
 						snames.push(n);
 						s = ({}/*:any*/); if(o.dense) sdata = s["!data"] = [];
 						refguess = {s: {r:0, c:0}, e: {r:0, c:0} };
@@ -164,17 +164,17 @@ var WK_ = /*#__PURE__*/(function() {
 			}}, o);
 		} else throw new Error("Unrecognized LOTUS BOF " + d[2]);
 		s["!ref"] = encode_range(refguess);
-		sheets[next_n || n] = s;
+		sheet_map_set(sheets, next_n || n, s);
 		snames.push(next_n || n);
 		if(!realnames.length) return { SheetNames: snames, Sheets: sheets };
-		var osheets = {}, rnames = [];
+		var osheets = sheet_map_new(), rnames = [];
 		/* TODO: verify no collisions */
-		for(var i = 0; i < realnames.length; ++i) if(sheets[snames[i]]) {
+		for(var i = 0; i < realnames.length; ++i) if(sheet_map_get(sheets, snames[i])) {
 			rnames.push(realnames[i] || snames[i]);
-			osheets[realnames[i]] = sheets[realnames[i]] || sheets[snames[i]];
+			sheet_map_set(osheets, realnames[i] || snames[i], sheet_map_get(sheets, realnames[i]) || sheet_map_get(sheets, snames[i]));
 		} else {
 			rnames.push(realnames[i]);
-			osheets[realnames[i]] = ({ "!ref": "A1" });
+			sheet_map_set(osheets, realnames[i], ({ "!ref": "A1" }));
 		}
 		return { SheetNames: rnames, Sheets: osheets };
 	}
@@ -228,11 +228,11 @@ var WK_ = /*#__PURE__*/(function() {
 
 		write_biff_rec(ba, 0x00, write_BOF_WK3(wb));
 
-		for(var i = 0, cnt = 0; i < wb.SheetNames.length; ++i) if((wb.Sheets[wb.SheetNames[i]] || {})["!ref"]) write_biff_rec(ba, 0x1b, write_XFORMAT_SHEETNAME(wb.SheetNames[i], cnt++));
+		for(var i = 0, cnt = 0; i < wb.SheetNames.length; ++i) if((sheet_map_get(wb.Sheets, wb.SheetNames[i]) || {})["!ref"]) write_biff_rec(ba, 0x1b, write_XFORMAT_SHEETNAME(wb.SheetNames[i], cnt++));
 
 		var wsidx = 0;
 		for(i = 0; i < wb.SheetNames.length; ++i) {
-			var ws = wb.Sheets[wb.SheetNames[i]];
+			var ws = sheet_map_get(wb.Sheets, wb.SheetNames[i]);
 			if(!ws || !ws["!ref"]) continue;
 			var range = safe_decode_range(ws["!ref"]);
 			var dense = ws["!data"] != null;
@@ -277,7 +277,7 @@ var WK_ = /*#__PURE__*/(function() {
 		var rows = 0, cols = 0, wscnt = 0;
 		for(var i = 0; i < wb.SheetNames.length; ++i) {
 			var name = wb.SheetNames[i];
-			var ws = wb.Sheets[name];
+			var ws = sheet_map_get(wb.Sheets, name);
 			if(!ws || !ws["!ref"]) continue;
 			++wscnt;
 			var range = decode_range(ws["!ref"]);
@@ -1005,7 +1005,7 @@ var WK_ = /*#__PURE__*/(function() {
 		var SST = [], sname = "", formulae = [];
 		var range = {s:{r:-1,c:-1}, e:{r:-1,c:-1}};
 		var cnt = 0, type = 0, C = 0, R = 0;
-		var wb = { SheetNames: [], Sheets: {} };
+		var wb = { SheetNames: [], Sheets: sheet_map_new() };
 		var FMTS = [];
 		outer: while(d.l < d.length) {
 			var RT = d.read_shift(2), length = d.read_shift(2);

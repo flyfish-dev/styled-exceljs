@@ -62,15 +62,66 @@ function html_to_sheet(str/*:string*/, _opts)/*:Workbook*/ {
 	return ws;
 }
 
-function cssesc(x) { return escapexml(String(x).replace(/"/g, "'")); }
 function css_color(color) {
 	if(!color) return "";
-	if(color.rgb) return "#" + String(color.rgb).slice(-6);
+	if(color.rgb && /^[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?$/.test(String(color.rgb))) return "#" + String(color.rgb).slice(-6);
 	return "";
 }
 function css_font_family(name) {
 	if(!name) return "";
-	return "'" + cssesc(name).replace(/'/g, "\\'") + "'";
+	return "'" + css_string_escape(name, "'") + "'";
+}
+
+function html_attr_escape(value/*:any*/)/*:string*/ {
+	return String(value).replace(/[&<>"']/g, function(ch) {
+		return ch == "&" ? "&amp;" : ch == "<" ? "&lt;" : ch == ">" ? "&gt;" : ch == '"' ? "&quot;" : "&#39;";
+	});
+}
+function html_writextag(tag/*:string*/, content/*:?string*/, attrs)/*:string*/ {
+	var out = ["<", tag];
+	if(attrs) keys(attrs).forEach(function(key) { out.push(" ", key, '="', html_attr_escape(attrs[key]), '"'); });
+	if(content == null) { out.push("/>"); return out.join(""); }
+	out.push(">", content, "</", tag, ">");
+	return out.join("");
+}
+function safe_html_href(value/*:any*/)/*:?string*/ {
+	var href = String(value == null ? "" : value).trim();
+	if(!href || href.slice(0, 2) == "//") return null;
+	var colon = href.indexOf(":"), prefix = colon == -1 ? "" : href.slice(0, colon), compact = "";
+	for(var i = 0; i < prefix.length; ++i) if(prefix.charCodeAt(i) > 32 && prefix.charCodeAt(i) != 127) compact += prefix.charAt(i);
+	if(colon != -1 && !/^(?:https?|mailto|tel)$/i.test(compact)) return null;
+	return href;
+}
+function safe_html_image_src(value/*:any*/)/*:?string*/ {
+	var src = String(value == null ? "" : value);
+	return /^data:image\/[A-Za-z0-9.+-]+;base64,[A-Za-z0-9+/=\r\n]+$/.test(src) ? src : null;
+}
+function sanitize_cell_html(value/*:any*/)/*:string*/ {
+	var html = String(value == null ? "" : value), out = [], pos = 0;
+	while(pos < html.length) {
+		var start = html.indexOf("<", pos);
+		if(start == -1) { out.push(html.slice(pos)); break; }
+		out.push(html.slice(pos, start));
+		var end = html.indexOf(">", start + 1);
+		if(end == -1) { out.push("&lt;", html.slice(start + 1)); break; }
+		var raw = html.slice(start + 1, end).trim(), lower = raw.toLowerCase();
+		if(/^(?:\/?(?:b|i|s|sup|sub)|br\s*\/?)$/.test(lower)) out.push("<", lower == "br" ? "br/" : lower, ">");
+		else if(lower == "/span") out.push("</span>");
+		else if(lower.slice(0, 12) == 'span style="' && raw.charAt(raw.length - 1) == '"') {
+			var declarations = raw.slice(12, -1).split(";"), safe = [];
+			declarations.forEach(function(decl) {
+				var colon = decl.indexOf(":"), key = colon == -1 ? "" : decl.slice(0, colon).trim().toLowerCase(), val = colon == -1 ? "" : decl.slice(colon + 1).trim().toLowerCase();
+				if(key == "text-decoration" && val == "underline") safe.push("text-decoration:underline");
+				else if(key == "text-underline-style" && /^(?:single|double|single-accounting|double-accounting)$/.test(val)) safe.push("text-underline-style:" + val);
+				else if(key == "font-size" && /^\d+(?:\.\d+)?pt$/.test(val)) safe.push("font-size:" + val);
+				else if(key == "text-effect" && val == "outline") safe.push("text-effect:outline");
+				else if(key == "text-shadow" && val == "auto") safe.push("text-shadow:auto");
+			});
+			out.push('<span style="', safe.join(";"), safe.length ? ";" : "", '">');
+		} else out.push(html_attr_escape(html.slice(start, end + 1)));
+		pos = end + 1;
+	}
+	return out.join("");
 }
 function html_border_style(style) {
 	switch(style) {
@@ -99,7 +150,8 @@ function html_cell_style(cell/*:Cell*/, opts/*:Sheet2HTMLOpts*/) {
 	var s = cell.s, css = [];
 	var font = s.font || {};
 	if(font.name) css.push("font-family:" + css_font_family(font.name));
-	if(font.sz) css.push("font-size:" + font.sz + "pt");
+	var fontSize = +font.sz;
+	if(isFinite(fontSize) && fontSize > 0) css.push("font-size:" + Math.min(fontSize, 409) + "pt");
 	if(font.bold) css.push("font-weight:bold");
 	if(font.italic) css.push("font-style:italic");
 	var deco = [];
@@ -112,8 +164,9 @@ function html_cell_style(cell/*:Cell*/, opts/*:Sheet2HTMLOpts*/) {
 	if(fill.patternType != "none" && fill.patternType != "gray125") fillColor = css_color(fill.fgColor) || css_color(fill.bgColor);
 	if(fillColor) css.push("background-color:" + fillColor);
 	var alignment = s.alignment || {};
-	if(alignment.horizontal) css.push("text-align:" + alignment.horizontal);
-	if(alignment.vertical) css.push("vertical-align:" + alignment.vertical);
+	if(/^(?:left|right|center|justify|fill|distributed)$/.test(alignment.horizontal || "")) css.push("text-align:" + alignment.horizontal);
+	var vertical = alignment.vertical == "center" ? "middle" : alignment.vertical;
+	if(/^(?:top|middle|bottom|baseline)$/.test(vertical || "")) css.push("vertical-align:" + vertical);
 	if(alignment.textRotation != null && alignment.textRotation !== 0) {
 		var deg = alignment.textRotation == 255 ? 90 : alignment.textRotation > 90 ? 90 - alignment.textRotation : alignment.textRotation;
 		css.push("transform:rotate(" + deg + "deg)");
@@ -192,7 +245,7 @@ function make_html_row(ws/*:Worksheet*/, r/*:Range*/, R/*:number*/, o/*:Sheet2HT
 			}
 		}
 		/* TODO: html entities */
-		var w = (cell && cell.v != null) && (cell.h || escapehtml(cell.w || (format_cell(cell), cell.w) || "")) || "";
+		var w = (cell && cell.v != null) && (cell.h ? sanitize_cell_html(cell.h) : escapehtml(cell.w || (format_cell(cell), cell.w) || "")) || "";
 		sp = ({}/*:any*/);
 		if(RS > 1) sp.rowspan = RS;
 		if(CS > 1) sp.colspan = CS;
@@ -200,17 +253,18 @@ function make_html_row(ws/*:Worksheet*/, r/*:Range*/, R/*:number*/, o/*:Sheet2HT
 		else if(cell) {
 			sp["data-t"] = cell && cell.t || 'z';
 			// note: data-v is unaffected by the timezone interpretation
-			if(cell.v != null) sp["data-v"] = escapehtml(cell.v instanceof Date ? cell.v.toISOString() : cell.v);
+			if(cell.v != null) sp["data-v"] = cell.v instanceof Date ? cell.v.toISOString() : cell.v;
 			if(cell.z != null) sp["data-z"] = cell.z;
-			if(cell.f != null) sp["data-f"] = escapehtml(cell.f);
-			if(cell.l && (cell.l.Target || "#").charAt(0) != "#" && (!o.sanitizeLinks || (cell.l.Target || "").slice(0, 11).toLowerCase() != 'javascript:')) w = '<a href="' + escapehtml(cell.l.Target) +'">' + w + '</a>';
+			if(cell.f != null) sp["data-f"] = cell.f;
+			var href = cell.l && safe_html_href(cell.l.Target);
+			if(href) w = '<a href="' + html_attr_escape(href) +'">' + w + '</a>';
 		}
 		var cstyle = html_cell_style(stylecell, o);
 		var lstyle = html_cell_layout_style(stylecell, o, C, CS, cols);
 		if(lstyle) cstyle = cstyle ? cstyle + ";" + lstyle : lstyle;
 		if(cstyle) sp.style = cstyle;
 		sp.id = (o.id || "sjs") + "-" + coord;
-		oo.push(writextag('td', w, sp));
+		oo.push(html_writextag('td', w, sp));
 	}
 	var rsp = ({}/*:any*/), rstyle = [];
 	if(row) {
@@ -218,7 +272,7 @@ function make_html_row(ws/*:Worksheet*/, r/*:Range*/, R/*:number*/, o/*:Sheet2HT
 		if(o.browserPixels) rstyle.push("height:" + html_row_height(row) + "px");
 	}
 	if(rstyle.length) rsp.style = rstyle.join(";");
-	return writextag('tr', oo.join(""), rsp);
+	return html_writextag('tr', oo.join(""), rsp);
 }
 
 var HTML_BEGIN = '<html><head><meta charset="utf-8"/><title>SheetJS Table Export</title></head><body>';
@@ -354,8 +408,10 @@ function render_html_drawings(ws, opts) {
 	var out = [], drawings = ws["!drawings"] || {}, charts = ws["!charts"] || [];
 	if(opts && opts.drawings && drawings.images) drawings.images.forEach(function(img) {
 		if(!img || !img.dataURI) return;
+		var src = safe_html_image_src(img.dataURI);
+		if(!src) return;
 		var pos = html_anchor_pos(ws, img.anchor, opts);
-		out.push('<img class="sjs-drawing-image" src="' + img.dataURI + '" style="' + html_abs_style(pos) + '"/>');
+		out.push('<img class="sjs-drawing-image" src="' + html_attr_escape(src) + '" style="' + html_abs_style(pos) + '"/>');
 	});
 	if(opts && opts.charts) charts.forEach(function(chart) {
 		var pos = html_anchor_pos(ws, chart.anchor, opts);
@@ -370,7 +426,7 @@ function make_html_preamble(ws/*:Worksheet*/, R/*:Range*/, o/*:Sheet2HTMLOpts*/)
 	if(o && o.id) tattr.id = o.id;
 	if(o && (o.browserPixels || o.autoFit)) tstyle.push("border-collapse:collapse;table-layout:fixed");
 	if(tstyle.length) tattr.style = tstyle.join(";");
-	var table = writextag("table", "", tattr).replace(/<\/table>$/, "");
+	var table = html_writextag("table", "", tattr).replace(/<\/table>$/, "");
 	var cols = o && o._htmlCols || ws["!cols"];
 	if(o && (o.browserPixels || o.autoFit) && cols) {
 		out.push("<colgroup>");
@@ -378,7 +434,7 @@ function make_html_preamble(ws/*:Worksheet*/, R/*:Range*/, o/*:Sheet2HTMLOpts*/)
 			var col = cols[C], style = [];
 			style.push("width:" + html_col_width(col) + "px");
 			if(col && col.hidden) style.push("display:none");
-			out.push(writextag("col", null, {style:style.join(";")}));
+			out.push(html_writextag("col", null, {style:style.join(";")}));
 		}
 		out.push("</colgroup>");
 	}

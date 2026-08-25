@@ -142,9 +142,13 @@ function check_wb(wb) {
 	if(!wb.SheetNames.length) throw new Error("Workbook is empty");
 	var Sheets = (wb.Workbook && wb.Workbook.Sheets) || [];
 	check_wb_names(wb.SheetNames, Sheets, !!wb.vbaraw);
-	for(var i = 0; i < wb.SheetNames.length; ++i) check_ws(wb.Sheets[wb.SheetNames[i]], wb.SheetNames[i], i);
+	for(var i = 0; i < wb.SheetNames.length; ++i) {
+		var ws = sheet_map_get(wb.Sheets, wb.SheetNames[i]);
+		if(!ws) throw new Error("Missing worksheet |" + wb.SheetNames[i] + "|");
+		check_ws(ws, wb.SheetNames[i], i);
+	}
 	wb.SheetNames.forEach(function(n, i) {
-		var ws = wb.Sheets[n];
+		var ws = sheet_map_get(wb.Sheets, n);
 		if(!ws || !ws["!autofilter"]) return;
 		var DN;
 		if(!wb.Workbook) wb.Workbook = {};

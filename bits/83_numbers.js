@@ -1515,7 +1515,7 @@ function write_numbers_iwa(wb, opts) {
       docroot = numbers_iwa_find(cfb, deps, 1);
       sheetrefs = mappa(parse_shallow(docroot.messages[0].data)[1], parse_TSP_Reference);
     }
-    write_numbers_ws(cfb, deps, wb.Sheets[name], name, idx, sheetrefs[idx]);
+    write_numbers_ws(cfb, deps, sheet_map_get(wb.Sheets, name), name, idx, sheetrefs[idx]);
   });
   return cfb;
 }

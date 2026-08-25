@@ -69,7 +69,7 @@ function parse_drawing_anchor(data) {
 function parse_drawing_text(data) {
 	var out = [];
 	(data.match(/<a:t\b[^>]*>[\s\S]*?<\/a:t>/g)||[]).forEach(function(t) {
-		out.push(unescapexml(t.replace(/<[^>]*>/g, "")));
+		out.push(unescapexml(strip_xml_tags(t)));
 	});
 	return out.join("");
 }

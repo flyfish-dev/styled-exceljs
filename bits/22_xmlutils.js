@@ -98,6 +98,19 @@ function escapexlml(text/*:string*/)/*:string*/{
 	return s.replace(decregex, function(y) { return rencoding[y]; }).replace(htmlcharegex,function(s) { return "&#x" + (s.charCodeAt(0).toString(16)).toUpperCase() + ";"; });
 }
 
+/* Extract text from XML fragments in linear time.  This is a parser helper,
+ * not an HTML sanitizer: text is escaped separately at HTML output boundaries. */
+function strip_xml_tags(text/*:string*/)/*:string*/ {
+	var str = String(text), out = [], inTag = false;
+	for(var i = 0; i < str.length; ++i) {
+		var cc = str.charCodeAt(i);
+		if(!inTag && cc == 60 /* < */) inTag = true;
+		else if(inTag && cc == 62 /* > */) inTag = false;
+		else if(!inTag) out.push(str.charAt(i));
+	}
+	return out.join("");
+}
+
 /* TODO: handle codepages */
 var xlml_fixstr/*:StringConv*/ = /*#__PURE__*/(function() {
 	var entregex = /&#(\d+);/g;
@@ -204,8 +217,8 @@ var htmldecode/*:{(s:string):string}*/ = /*#__PURE__*/(function() {
 				.replace(/[\t\n\r ]+/g, " ")
 				// Replace <br> tags with new lines
 				.replace(/<\s*[bB][rR]\s*\/?>/g,"\n")
-				// Strip HTML elements
-				.replace(/<[^<>]*>/g,"");
+					;
+		o = strip_xml_tags(o);
 		for(var i = 0; i < entities.length; ++i) o = o.replace(entities[i][0], entities[i][1]);
 		return o;
 	};

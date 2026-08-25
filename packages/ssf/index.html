@@ -37,10 +37,10 @@ var T = document.getElementById('txt');
 function update() {
 	try {
 		N.innerHTML = SSF.format(F.value, Number(V.value));
-	} catch(e) { N.innerHTML = e; }
+	} catch(e) { N.textContent = String(e); }
 	try {
 		T.innerHTML = SSF.format(F.value, V.value);
-	} catch(e) { T.innerHTML = e; }
+	} catch(e) { T.textContent = String(e); }
 }
 
 /* Bind to relevant events */

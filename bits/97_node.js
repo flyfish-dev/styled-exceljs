@@ -106,7 +106,7 @@ function write_json_stream(sheet/*:Worksheet*/, opts/*:?Sheet2CSVOpts*/) {
 			if ((rowinfo[R]||{}).hidden) {
 				++R;
 				continue;
-			};
+			}
 			var row = make_json_row(sheet, r, R, cols, header, hdr, o);
 			++R;
 			if((row.isempty === false) || (header === 1 ? o.blankrows !== false : !!o.blankrows)) {
@@ -135,7 +135,7 @@ function write_xlml_stream(wb/*:Workbook*/, o/*:?Sheet2XLMLOpts*/) {
 
 	/* do one pass to determine styles since they must be added before tables */
 	wb.SheetNames.forEach(function(n) {
-		var ws = wb.Sheets[n];
+		var ws = sheet_map_get(wb.Sheets, n);
 		if(!ws || !ws["!ref"]) return;
 		var range = decode_range(ws["!ref"]);
 		var dense = ws["!data"] != null;
@@ -155,7 +155,7 @@ function write_xlml_stream(wb/*:Workbook*/, o/*:?Sheet2XLMLOpts*/) {
 	});
 	var sty = write_sty_xlml(wb, opts);
 
-	var stage = 0, wsidx = 0, ws = wb.Sheets[wb.SheetNames[wsidx]], range = safe_decode_range(ws), R = -1, T = false;
+	var stage = 0, wsidx = 0, ws = sheet_map_get(wb.Sheets, wb.SheetNames[wsidx]), range = safe_decode_range(ws), R = -1, T = false;
 
 	var marr = [], mi = 0, dense = false, darr = [], addr = {r:0,c:0};
 
@@ -195,7 +195,7 @@ function write_xlml_stream(wb/*:Workbook*/, o/*:?Sheet2XLMLOpts*/) {
 
 			stream.push("<Worksheet" + wxt_helper({ "ss:Name": escapexml(wb.SheetNames[wsidx])}) + ">");
 
-			ws = wb.Sheets[wb.SheetNames[wsidx]];
+			ws = sheet_map_get(wb.Sheets, wb.SheetNames[wsidx]);
 			if(!ws) { stream.push("</Worksheet>"); return void ++wsidx; }
 
 			var names = write_ws_xlml_names(ws, opts, wsidx, wb);

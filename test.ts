@@ -1480,11 +1480,11 @@ Deno.test('write features', async function(t) {
 			var str = X.write(wb, {bookType:"html", type:"binary"});
 			assert.assert(str.indexOf("<b>abc</b>") > 0);
 		});
-		await t.step('should remove javascript: URLs when sanitizeLinks is true', async function(t) {
+		await t.step('should remove javascript: URLs by default', async function(t) {
 			var sheet = X.utils.aoa_to_sheet([["Click me"]]);
 			get_cell(sheet, "A1").l = { Target: "javascript:alert('xss')" };
 
-			assert.assert(X.utils.sheet_to_html(sheet).indexOf("javascript:alert") > -1, "javascript: should not be stripped by default");
+			assert.assert(X.utils.sheet_to_html(sheet).indexOf("javascript:alert") === -1, "javascript: should be stripped by default");
 
 			assert.assert(X.utils.sheet_to_html(sheet, { sanitizeLinks: true }).indexOf("javascript:alert") === -1, "javascript: should be stripped with sanitizeLinks");
 		});
@@ -3118,4 +3118,3 @@ for(var mfti = 0; mfti < mft.length; ++mfti) { var x = mft[mfti];
 		case "yes-formula": formulae = true; break;
 	}});
 } });
-

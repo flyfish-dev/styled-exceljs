@@ -184,6 +184,15 @@ function style_font_family(style) {
 	var font = style && style.font || {};
 	return font.name || "Calibri";
 }
+function css_string_escape(value/*:any*/, quote/*:string*/)/*:string*/ {
+	var str = String(value), out = [];
+	for(var i = 0; i < str.length; ++i) {
+		var cc = str.charCodeAt(i), ch = str.charAt(i);
+		if(ch == quote || ch == "\\" || cc < 32 || cc == 127 || ch == "<" || ch == ">" || ch == "&") out.push("\\" + cc.toString(16) + " ");
+		else out.push(ch);
+	}
+	return out.join("");
+}
 function css_font_from_style(style) {
 	var font = style && style.font || {};
 	var parts = [];
@@ -191,7 +200,8 @@ function css_font_from_style(style) {
 	if(font.bold) parts.push("bold");
 	parts.push(style_font_size_pt(style) + "pt");
 	var name = style_font_family(style);
-	if(/[,\s'"]/.test(name)) name = '"' + String(name).replace(/"/g, '\\"') + '"';
+	if(/[,\s'"]/.test(name)) name = '"' + css_string_escape(name, '"') + '"';
+	else name = css_string_escape(name, '"');
 	parts.push(name);
 	return parts.join(" ");
 }

@@ -9,7 +9,7 @@ function blobify(data) {
 }
 /* write or download file */
 function write_dl(fname/*:string*/, payload/*:any*/, enc/*:?string*/) {
-	/*global IE_SaveFile, Blob, navigator, saveAs, document, File, chrome */
+	/*global IE_SaveFile, navigator, saveAs, document, chrome */
 	if(typeof _fs !== 'undefined' && _fs.writeFileSync) return enc ? _fs.writeFileSync(fname, payload, enc) : _fs.writeFileSync(fname, payload);
 	if(typeof Deno !== 'undefined') {
 		/* in this spot, it's safe to assume typed arrays and TextEncoder/TextDecoder exist */

@@ -1,7 +1,7 @@
 /*! xlsx.js (C) 2013-present SheetJS -- http://sheetjs.com */
 /* vim: set ts=2: */
 /*exported XLSX */
-/*global global, exports, module, require:false, process:false, Buffer:false, ArrayBuffer:false, DataView:false, Deno:false, Set:false, Float32Array:false */
+/*global global, exports, module, require:false, process:false, Buffer:false, ArrayBuffer:false, DataView:false, Deno:false, Set:false, Float32Array:false, Int8Array:false */
 var XLSX = {};
 function make_xlsx_lib(XLSX){
 XLSX.version = '0.21.3';
@@ -158,9 +158,9 @@ function Base64_decode(input) {
   var o = "";
   var c1 = 0, c2 = 0, c3 = 0, e1 = 0, e2 = 0, e3 = 0, e4 = 0;
   if (input.slice(0, 5) == "data:") {
-    var i = input.slice(0, 1024).indexOf(";base64,");
-    if (i > -1)
-      input = input.slice(i + 8);
+		var sep = input.slice(0, 1024).indexOf(";base64,");
+		if (sep > -1)
+			input = input.slice(sep + 8);
   }
   input = input.replace(/[^\w\+\/\=]/g, "");
   for (var i = 0; i < input.length; ) {
@@ -3232,7 +3232,7 @@ function blobify(data) {
 }
 /* write or download file */
 function write_dl(fname, payload, enc) {
-	/*global IE_SaveFile, Blob, navigator, saveAs, document, File, chrome */
+	/*global IE_SaveFile, navigator, saveAs, document, chrome */
 	if(typeof _fs !== 'undefined' && _fs.writeFileSync) return enc ? _fs.writeFileSync(fname, payload, enc) : _fs.writeFileSync(fname, payload);
 	if(typeof Deno !== 'undefined') {
 		/* in this spot, it's safe to assume typed arrays and TextEncoder/TextDecoder exist */
@@ -3880,6 +3880,19 @@ function escapexlml(text){
 	return s.replace(decregex, function(y) { return rencoding[y]; }).replace(htmlcharegex,function(s) { return "&#x" + (s.charCodeAt(0).toString(16)).toUpperCase() + ";"; });
 }
 
+/* Extract text from XML fragments in linear time.  This is a parser helper,
+ * not an HTML sanitizer: text is escaped separately at HTML output boundaries. */
+function strip_xml_tags(text) {
+	var str = String(text), out = [], inTag = false;
+	for(var i = 0; i < str.length; ++i) {
+		var cc = str.charCodeAt(i);
+		if(!inTag && cc == 60 /* < */) inTag = true;
+		else if(inTag && cc == 62 /* > */) inTag = false;
+		else if(!inTag) out.push(str.charAt(i));
+	}
+	return out.join("");
+}
+
 /* TODO: handle codepages */
 var xlml_fixstr = (function() {
 	var entregex = /&#(\d+);/g;
@@ -3986,8 +3999,8 @@ var htmldecode = (function() {
 				.replace(/[\t\n\r ]+/g, " ")
 				// Replace <br> tags with new lines
 				.replace(/<\s*[bB][rR]\s*\/?>/g,"\n")
-				// Strip HTML elements
-				.replace(/<[^<>]*>/g,"");
+					;
+		o = strip_xml_tags(o);
 		for(var i = 0; i < entities.length; ++i) o = o.replace(entities[i][0], entities[i][1]);
 		return o;
 	};
@@ -4554,9 +4567,25 @@ function format_cell(cell, v, o) {
 	return safe_format_cell(cell, v);
 }
 
+/* Worksheet names are document-controlled.  A normal object treats
+ * "__proto__" as a setter, so all workbook sheet maps must use an own-property
+ * preserving dictionary and all lookups must reject inherited properties. */
+function sheet_map_new() {
+	return Object.create ? Object.create(null) : {};
+}
+function sheet_map_set(sheets, name, sheet) {
+	if(name == "__proto__" && Object.defineProperty) Object.defineProperty(sheets, name, {
+		value: sheet, configurable: true, enumerable: true, writable: true
+	});
+	else sheets[name] = sheet;
+}
+function sheet_map_get(sheets, name) {
+	return sheets != null && Object.prototype.hasOwnProperty.call(sheets, name) ? sheets[name] : void 0;
+}
+
 function sheet_to_workbook(sheet, opts) {
 	var n = opts && opts.sheet ? opts.sheet : "Sheet1";
-	var sheets = {}; sheets[n] = sheet;
+	var sheets = sheet_map_new(); sheet_map_set(sheets, n, sheet);
 	return { SheetNames: [n], Sheets: sheets };
 }
 
@@ -5951,7 +5980,7 @@ function dbf_to_workbook(buf, opts) {
 		o.bookType = "dbf";
 		return o;
 	} catch(e) { if(opts && opts.WTF) throw e; }
-	return ({SheetNames:[],Sheets:{}});
+	return ({SheetNames:[],Sheets:sheet_map_new()});
 }
 
 var _RLEN = { 'B': 8, 'C': 250, 'L': 1, 'D': 8, '?': 0, '': 0 };
@@ -6847,7 +6876,7 @@ function read_wb_TABL(d, opts) {
 	try {
 		var out = DIF.to_workbook(d, o);
 		if(!out || !out.Sheets) throw "DIF bad workbook";
-		var ws = out.Sheets[out.SheetNames[0]];
+		var ws = sheet_map_get(out.Sheets, out.SheetNames[0]);
 		if(!ws || !ws["!ref"]) throw "DIF empty worksheet";
 		o.WTF = OLD_WTF;
 		return out;
@@ -6985,13 +7014,13 @@ var parse_rs = (function() {
 
 /* Parse a list of <r> tags */
 var rs_to_html = (function parse_rs_factory() {
-	var nlregex = /(\r\n|\n)/g;
 	function parse_rpr2(font, intro, outro) {
 		var style = [];
 
 		if(font.u) style.push("text-decoration: underline;");
-		if(font.uval) style.push("text-underline-style:" + font.uval + ";");
-		if(font.sz) style.push("font-size:" + font.sz + "pt;");
+		if(font.uval && /^(?:single|double|single-accounting|double-accounting)$/.test(font.uval)) style.push("text-underline-style:" + font.uval + ";");
+		var sz = +font.sz;
+		if(isFinite(sz) && sz > 0) style.push("font-size:" + Math.min(sz, 409) + "pt;");
 		if(font.outline) style.push("text-effect: outline;");
 		if(font.shadow) style.push("text-shadow: auto;");
 		intro.push('<span style="' + style.join("") + '">');
@@ -7016,7 +7045,7 @@ var rs_to_html = (function parse_rs_factory() {
 
 		if(r.s) parse_rpr2(r.s, terms[0], terms[2]);
 
-		return terms[0].join("") + terms[1].replace(nlregex,'<br/>') + terms[2].join("");
+		return terms[0].join("") + escapehtml(terms[1]) + terms[2].join("");
 	}
 
 	return function parse_rs(rs) {
@@ -7280,6 +7309,15 @@ function style_font_family(style) {
 	var font = style && style.font || {};
 	return font.name || "Calibri";
 }
+function css_string_escape(value, quote) {
+	var str = String(value), out = [];
+	for(var i = 0; i < str.length; ++i) {
+		var cc = str.charCodeAt(i), ch = str.charAt(i);
+		if(ch == quote || ch == "\\" || cc < 32 || cc == 127 || ch == "<" || ch == ">" || ch == "&") out.push("\\" + cc.toString(16) + " ");
+		else out.push(ch);
+	}
+	return out.join("");
+}
 function css_font_from_style(style) {
 	var font = style && style.font || {};
 	var parts = [];
@@ -7287,7 +7325,8 @@ function css_font_from_style(style) {
 	if(font.bold) parts.push("bold");
 	parts.push(style_font_size_pt(style) + "pt");
 	var name = style_font_family(style);
-	if(/[,\s'"]/.test(name)) name = '"' + String(name).replace(/"/g, '\\"') + '"';
+	if(/[,\s'"]/.test(name)) name = '"' + css_string_escape(name, '"') + '"';
+	else name = css_string_escape(name, '"');
 	parts.push(name);
 	return parts.join(" ");
 }
@@ -8616,7 +8655,7 @@ function parse_drawing_anchor(data) {
 function parse_drawing_text(data) {
 	var out = [];
 	(data.match(/<a:t\b[^>]*>[\s\S]*?<\/a:t>/g)||[]).forEach(function(t) {
-		out.push(unescapexml(t.replace(/<[^>]*>/g, "")));
+		out.push(unescapexml(strip_xml_tags(t)));
 	});
 	return out.join("");
 }
@@ -9382,7 +9421,25 @@ var mergecregex = /<(?:\w+:)?mergeCell ref=["'][A-Z0-9:]+['"]\s*[\/]?>/g;
 var hlinkregex = /<(?:\w+:)?hyperlink [^<>]*>/mg;
 var dimregex = /"(\w*:\w*)"/;
 var colregex = /<(?:\w+:)?col\b[^<>]*[\/]?>/g;
-var afregex = /<(?:\w:)?autoFilter[^>]*([\/]|>([\s\S]*)<\/(?:\w:)?autoFilter)>/g;
+function match_ws_xml_autofilter(data) {
+	var paired = str_match_xml_ns(data, "autoFilter");
+	if(paired) return paired[0];
+	var start = 0;
+	while((start = data.indexOf("<", start)) != -1) {
+		var end = data.indexOf(">", start + 1);
+		if(end == -1) return null;
+		var tag = data.slice(start + 1, end), p = 0;
+		while(p < tag.length && tag.charCodeAt(p) <= 32) ++p;
+		var nameEnd = p;
+		while(nameEnd < tag.length && tag.charCodeAt(nameEnd) > 32 && tag.charAt(nameEnd) != "/") ++nameEnd;
+		var name = tag.slice(p, nameEnd), colon = name.indexOf(":");
+		if(colon != -1) name = name.slice(colon + 1);
+		var tail = tag.slice(nameEnd).trim();
+		if(name == "autoFilter" && tail.charAt(tail.length - 1) == "/") return data.slice(start, end + 1);
+		start = end + 1;
+	}
+	return null;
+}
 var marginregex= /<(?:\w+:)?pageMargins[^<>]*\/>/g;
 var sheetprregex = /<(?:\w+:)?sheetPr\b[^<>]*?\/>/;
 
@@ -9431,8 +9488,8 @@ function parse_ws_xml(data, opts, idx, rels, wb, themes, styles) {
 	if(mtch) parse_ws_xml_data(mtch[1], s, opts, refguess, themes, styles, wb);
 
 	/* 18.3.1.2  autoFilter CT_AutoFilter */
-	var afilter = data2.match(afregex);
-	if(afilter) s['!autofilter'] = parse_ws_xml_autofilter(afilter[0]);
+	var afilter = match_ws_xml_autofilter(data2);
+	if(afilter) s['!autofilter'] = parse_ws_xml_autofilter(afilter);
 
 	/* 18.3.1.55 mergeCells CT_MergeCells */
 	var merges = [];
@@ -9957,7 +10014,7 @@ function write_ws_xml(idx, opts, wb, rels) {
 		'xmlns:r': XMLNS.r
 	})];
 	var s = wb.SheetNames[idx], sidx = 0, rdata = "";
-	var ws = wb.Sheets[s];
+	var ws = sheet_map_get(wb.Sheets, s);
 	if(ws == null) ws = {};
 	var ref = ws['!ref'] || 'A1';
 	var range = safe_decode_range(ref);
@@ -10088,7 +10145,7 @@ function parse_Cache(data) {
 	/* 21.2.2.71 formatCode CT_Xstring */
 	var nf = unescapexml((str_match_xml(data, "c:formatCode") || ["","General"])[1]);
 
-	(str_match_ng(data, "<c:f>", "</c:f>")||[]).forEach(function(F) { f = F.replace(/<[^<>]*>/g,""); });
+	(str_match_ng(data, "<c:f>", "</c:f>")||[]).forEach(function(F) { f = strip_xml_tags(F); });
 
 	return [col, nf, f];
 }
@@ -10105,7 +10162,7 @@ function parse_chart_cache(data) {
 		return {values:s[0], formatCode:s[1], formula:s[2]};
 	}
 	var f = (str_match_ng(data, "<c:f>", "</c:f>")||[])[0];
-	return {values:[], formula:f ? f.replace(/<[^<>]*>/g,"") : void 0};
+	return {values:[], formula:f ? strip_xml_tags(f) : void 0};
 }
 
 function parse_chart_tx(data) {
@@ -10137,7 +10194,7 @@ function parse_chart_title(data) {
 	var title = str_match_xml_ns(data, "title");
 	if(!title) return "";
 	var out = [];
-	(title[0].match(/<a:t\b[^>]*>[\s\S]*?<\/a:t>/g)||[]).forEach(function(t) { out.push(unescapexml(t.replace(/<[^>]*>/g, ""))); });
+	(title[0].match(/<a:t\b[^>]*>[\s\S]*?<\/a:t>/g)||[]).forEach(function(t) { out.push(unescapexml(strip_xml_tags(t))); });
 	return out.join("");
 }
 
@@ -10368,9 +10425,13 @@ function check_wb(wb) {
 	if(!wb.SheetNames.length) throw new Error("Workbook is empty");
 	var Sheets = (wb.Workbook && wb.Workbook.Sheets) || [];
 	check_wb_names(wb.SheetNames, Sheets, !!wb.vbaraw);
-	for(var i = 0; i < wb.SheetNames.length; ++i) check_ws(wb.Sheets[wb.SheetNames[i]], wb.SheetNames[i], i);
+	for(var i = 0; i < wb.SheetNames.length; ++i) {
+		var ws = sheet_map_get(wb.Sheets, wb.SheetNames[i]);
+		if(!ws) throw new Error("Missing worksheet |" + wb.SheetNames[i] + "|");
+		check_ws(ws, wb.SheetNames[i], i);
+	}
 	wb.SheetNames.forEach(function(n, i) {
-		var ws = wb.Sheets[n];
+		var ws = sheet_map_get(wb.Sheets, n);
 		if(!ws || !ws["!autofilter"]) return;
 		var DN;
 		if(!wb.Workbook) wb.Workbook = {};
@@ -10745,15 +10806,66 @@ function html_to_sheet(str, _opts) {
 	return ws;
 }
 
-function cssesc(x) { return escapexml(String(x).replace(/"/g, "'")); }
 function css_color(color) {
 	if(!color) return "";
-	if(color.rgb) return "#" + String(color.rgb).slice(-6);
+	if(color.rgb && /^[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?$/.test(String(color.rgb))) return "#" + String(color.rgb).slice(-6);
 	return "";
 }
 function css_font_family(name) {
 	if(!name) return "";
-	return "'" + cssesc(name).replace(/'/g, "\\'") + "'";
+	return "'" + css_string_escape(name, "'") + "'";
+}
+
+function html_attr_escape(value) {
+	return String(value).replace(/[&<>"']/g, function(ch) {
+		return ch == "&" ? "&amp;" : ch == "<" ? "&lt;" : ch == ">" ? "&gt;" : ch == '"' ? "&quot;" : "&#39;";
+	});
+}
+function html_writextag(tag, content, attrs) {
+	var out = ["<", tag];
+	if(attrs) keys(attrs).forEach(function(key) { out.push(" ", key, '="', html_attr_escape(attrs[key]), '"'); });
+	if(content == null) { out.push("/>"); return out.join(""); }
+	out.push(">", content, "</", tag, ">");
+	return out.join("");
+}
+function safe_html_href(value) {
+	var href = String(value == null ? "" : value).trim();
+	if(!href || href.slice(0, 2) == "//") return null;
+	var colon = href.indexOf(":"), prefix = colon == -1 ? "" : href.slice(0, colon), compact = "";
+	for(var i = 0; i < prefix.length; ++i) if(prefix.charCodeAt(i) > 32 && prefix.charCodeAt(i) != 127) compact += prefix.charAt(i);
+	if(colon != -1 && !/^(?:https?|mailto|tel)$/i.test(compact)) return null;
+	return href;
+}
+function safe_html_image_src(value) {
+	var src = String(value == null ? "" : value);
+	return /^data:image\/[A-Za-z0-9.+-]+;base64,[A-Za-z0-9+/=\r\n]+$/.test(src) ? src : null;
+}
+function sanitize_cell_html(value) {
+	var html = String(value == null ? "" : value), out = [], pos = 0;
+	while(pos < html.length) {
+		var start = html.indexOf("<", pos);
+		if(start == -1) { out.push(html.slice(pos)); break; }
+		out.push(html.slice(pos, start));
+		var end = html.indexOf(">", start + 1);
+		if(end == -1) { out.push("&lt;", html.slice(start + 1)); break; }
+		var raw = html.slice(start + 1, end).trim(), lower = raw.toLowerCase();
+		if(/^(?:\/?(?:b|i|s|sup|sub)|br\s*\/?)$/.test(lower)) out.push("<", lower == "br" ? "br/" : lower, ">");
+		else if(lower == "/span") out.push("</span>");
+		else if(lower.slice(0, 12) == 'span style="' && raw.charAt(raw.length - 1) == '"') {
+			var declarations = raw.slice(12, -1).split(";"), safe = [];
+			declarations.forEach(function(decl) {
+				var colon = decl.indexOf(":"), key = colon == -1 ? "" : decl.slice(0, colon).trim().toLowerCase(), val = colon == -1 ? "" : decl.slice(colon + 1).trim().toLowerCase();
+				if(key == "text-decoration" && val == "underline") safe.push("text-decoration:underline");
+				else if(key == "text-underline-style" && /^(?:single|double|single-accounting|double-accounting)$/.test(val)) safe.push("text-underline-style:" + val);
+				else if(key == "font-size" && /^\d+(?:\.\d+)?pt$/.test(val)) safe.push("font-size:" + val);
+				else if(key == "text-effect" && val == "outline") safe.push("text-effect:outline");
+				else if(key == "text-shadow" && val == "auto") safe.push("text-shadow:auto");
+			});
+			out.push('<span style="', safe.join(";"), safe.length ? ";" : "", '">');
+		} else out.push(html_attr_escape(html.slice(start, end + 1)));
+		pos = end + 1;
+	}
+	return out.join("");
 }
 function html_border_style(style) {
 	switch(style) {
@@ -10782,7 +10894,8 @@ function html_cell_style(cell, opts) {
 	var s = cell.s, css = [];
 	var font = s.font || {};
 	if(font.name) css.push("font-family:" + css_font_family(font.name));
-	if(font.sz) css.push("font-size:" + font.sz + "pt");
+	var fontSize = +font.sz;
+	if(isFinite(fontSize) && fontSize > 0) css.push("font-size:" + Math.min(fontSize, 409) + "pt");
 	if(font.bold) css.push("font-weight:bold");
 	if(font.italic) css.push("font-style:italic");
 	var deco = [];
@@ -10795,8 +10908,9 @@ function html_cell_style(cell, opts) {
 	if(fill.patternType != "none" && fill.patternType != "gray125") fillColor = css_color(fill.fgColor) || css_color(fill.bgColor);
 	if(fillColor) css.push("background-color:" + fillColor);
 	var alignment = s.alignment || {};
-	if(alignment.horizontal) css.push("text-align:" + alignment.horizontal);
-	if(alignment.vertical) css.push("vertical-align:" + alignment.vertical);
+	if(/^(?:left|right|center|justify|fill|distributed)$/.test(alignment.horizontal || "")) css.push("text-align:" + alignment.horizontal);
+	var vertical = alignment.vertical == "center" ? "middle" : alignment.vertical;
+	if(/^(?:top|middle|bottom|baseline)$/.test(vertical || "")) css.push("vertical-align:" + vertical);
 	if(alignment.textRotation != null && alignment.textRotation !== 0) {
 		var deg = alignment.textRotation == 255 ? 90 : alignment.textRotation > 90 ? 90 - alignment.textRotation : alignment.textRotation;
 		css.push("transform:rotate(" + deg + "deg)");
@@ -10875,7 +10989,7 @@ function make_html_row(ws, r, R, o) {
 			}
 		}
 		/* TODO: html entities */
-		var w = (cell && cell.v != null) && (cell.h || escapehtml(cell.w || (format_cell(cell), cell.w) || "")) || "";
+		var w = (cell && cell.v != null) && (cell.h ? sanitize_cell_html(cell.h) : escapehtml(cell.w || (format_cell(cell), cell.w) || "")) || "";
 		sp = ({});
 		if(RS > 1) sp.rowspan = RS;
 		if(CS > 1) sp.colspan = CS;
@@ -10883,17 +10997,18 @@ function make_html_row(ws, r, R, o) {
 		else if(cell) {
 			sp["data-t"] = cell && cell.t || 'z';
 			// note: data-v is unaffected by the timezone interpretation
-			if(cell.v != null) sp["data-v"] = escapehtml(cell.v instanceof Date ? cell.v.toISOString() : cell.v);
+			if(cell.v != null) sp["data-v"] = cell.v instanceof Date ? cell.v.toISOString() : cell.v;
 			if(cell.z != null) sp["data-z"] = cell.z;
-			if(cell.f != null) sp["data-f"] = escapehtml(cell.f);
-			if(cell.l && (cell.l.Target || "#").charAt(0) != "#" && (!o.sanitizeLinks || (cell.l.Target || "").slice(0, 11).toLowerCase() != 'javascript:')) w = '<a href="' + escapehtml(cell.l.Target) +'">' + w + '</a>';
+			if(cell.f != null) sp["data-f"] = cell.f;
+			var href = cell.l && safe_html_href(cell.l.Target);
+			if(href) w = '<a href="' + html_attr_escape(href) +'">' + w + '</a>';
 		}
 		var cstyle = html_cell_style(stylecell, o);
 		var lstyle = html_cell_layout_style(stylecell, o, C, CS, cols);
 		if(lstyle) cstyle = cstyle ? cstyle + ";" + lstyle : lstyle;
 		if(cstyle) sp.style = cstyle;
 		sp.id = (o.id || "sjs") + "-" + coord;
-		oo.push(writextag('td', w, sp));
+		oo.push(html_writextag('td', w, sp));
 	}
 	var rsp = ({}), rstyle = [];
 	if(row) {
@@ -10901,7 +11016,7 @@ function make_html_row(ws, r, R, o) {
 		if(o.browserPixels) rstyle.push("height:" + html_row_height(row) + "px");
 	}
 	if(rstyle.length) rsp.style = rstyle.join(";");
-	return writextag('tr', oo.join(""), rsp);
+	return html_writextag('tr', oo.join(""), rsp);
 }
 
 var HTML_BEGIN = '<html><head><meta charset="utf-8"/><title>SheetJS Table Export</title></head><body>';
@@ -11037,8 +11152,10 @@ function render_html_drawings(ws, opts) {
 	var out = [], drawings = ws["!drawings"] || {}, charts = ws["!charts"] || [];
 	if(opts && opts.drawings && drawings.images) drawings.images.forEach(function(img) {
 		if(!img || !img.dataURI) return;
+		var src = safe_html_image_src(img.dataURI);
+		if(!src) return;
 		var pos = html_anchor_pos(ws, img.anchor, opts);
-		out.push('<img class="sjs-drawing-image" src="' + img.dataURI + '" style="' + html_abs_style(pos) + '"/>');
+		out.push('<img class="sjs-drawing-image" src="' + html_attr_escape(src) + '" style="' + html_abs_style(pos) + '"/>');
 	});
 	if(opts && opts.charts) charts.forEach(function(chart) {
 		var pos = html_anchor_pos(ws, chart.anchor, opts);
@@ -11053,7 +11170,7 @@ function make_html_preamble(ws, R, o) {
 	if(o && o.id) tattr.id = o.id;
 	if(o && (o.browserPixels || o.autoFit)) tstyle.push("border-collapse:collapse;table-layout:fixed");
 	if(tstyle.length) tattr.style = tstyle.join(";");
-	var table = writextag("table", "", tattr).replace(/<\/table>$/, "");
+	var table = html_writextag("table", "", tattr).replace(/<\/table>$/, "");
 	var cols = o && o._htmlCols || ws["!cols"];
 	if(o && (o.browserPixels || o.autoFit) && cols) {
 		out.push("<colgroup>");
@@ -11061,7 +11178,7 @@ function make_html_preamble(ws, R, o) {
 			var col = cols[C], style = [];
 			style.push("width:" + html_col_width(col) + "px");
 			if(col && col.hidden) style.push("display:none");
-			out.push(writextag("col", null, {style:style.join(";")}));
+			out.push(html_writextag("col", null, {style:style.join(";")}));
 		}
 		out.push("</colgroup>");
 	}
@@ -11228,7 +11345,7 @@ function parse_text_p(text) {
 		.replace(/<text:s text:c="(\d+)"\/>/g, function($$,$1) { return Array(parseInt($1,10)+1).join(" "); })
 		.replace(/<text:tab[^<>]*\/>/g,"\t")
 		.replace(/<text:line-break\/>/g,"\n");
-	var v = unescapexml(fixed.replace(/<[^<>]*>/g,""));
+	var v = unescapexml(strip_xml_tags(fixed));
 
 	return [v];
 }
@@ -11465,7 +11582,7 @@ function parse_content_xml(d, _opts, _nfm) {
 		var nfidx, NF = "", pidx = 0;
 		var sheetag;
 		var rowtag;
-		var Sheets = {}, SheetNames = [];
+		var Sheets = sheet_map_new(), SheetNames = [];
 		var ws = ({}); if(opts.dense) ws["!data"] = [];
 		var Rn, q;
 		var ctag = ({value:""}), ctag2 = ({});
@@ -11502,7 +11619,7 @@ function parse_content_xml(d, _opts, _nfm) {
 					sheetag.name = sheetag['名称'] || sheetag.name;
 					if(typeof JSON !== 'undefined') JSON.stringify(sheetag);
 					SheetNames.push(sheetag.name);
-					Sheets[sheetag.name] = ws;
+					sheet_map_set(Sheets, sheetag.name, ws);
 					WB.Sheets.push({
 						/* TODO: CodeName */
 						Hidden: (tstyles[sheetag["style-name"]] && tstyles[sheetag["style-name"]]["display"] ? (parsexmlbool(tstyles[sheetag["style-name"]]["display"]) ? 0 : 1) : 0)
@@ -12370,7 +12487,7 @@ var write_content_ods = /* @__PURE__ */(function() {
 
 		/* column styles */
 		var cidx = 0;
-		wb.SheetNames.map(function(n) { return wb.Sheets[n]; }).forEach(function(ws) {
+		wb.SheetNames.map(function(n) { return sheet_map_get(wb.Sheets, n); }).forEach(function(ws) {
 			if(!ws) return;
 			if(ws["!cols"]) {
 				for(var C = 0; C < ws["!cols"].length; ++C) if(ws["!cols"][C]) {
@@ -12389,7 +12506,7 @@ var write_content_ods = /* @__PURE__ */(function() {
 
 		/* row styles */
 		var ridx = 0;
-		wb.SheetNames.map(function(n) { return wb.Sheets[n]; }).forEach(function(ws) {
+		wb.SheetNames.map(function(n) { return sheet_map_get(wb.Sheets, n); }).forEach(function(ws) {
 			if(!ws) return;
 			if(ws["!rows"]) {
 				for(var R = 0; R < ws["!rows"].length; ++R) if(ws["!rows"][R]) {
@@ -12422,7 +12539,7 @@ var write_content_ods = /* @__PURE__ */(function() {
 		/* number formats, table cells, text */
 		var nfs = {};
 		var nfi = 69;
-		wb.SheetNames.map(function(n) { return wb.Sheets[n]; }).forEach(function(ws) {
+		wb.SheetNames.map(function(n) { return sheet_map_get(wb.Sheets, n); }).forEach(function(ws) {
 			if(!ws) return;
 			var dense = (ws["!data"] != null);
 			if(!ws["!ref"]) return;
@@ -12505,7 +12622,7 @@ var write_content_ods = /* @__PURE__ */(function() {
 		o.push('  <office:body>\n');
 		o.push('    <office:spreadsheet>\n');
 		if(((wb.Workbook||{}).WBProps||{}).date1904) o.push('      <table:calculation-settings table:case-sensitive="false" table:search-criteria-must-apply-to-whole-cell="true" table:use-wildcards="true" table:use-regular-expressions="false" table:automatic-find-labels="false">\n        <table:null-date table:date-value="1904-01-01"/>\n      </table:calculation-settings>\n');
-		for(var i = 0; i != wb.SheetNames.length; ++i) o.push(write_ws(wb.Sheets[wb.SheetNames[i]], wb, i, opts, nfs, ((wb.Workbook||{}).WBProps||{}).date1904));
+		for(var i = 0; i != wb.SheetNames.length; ++i) o.push(write_ws(sheet_map_get(wb.Sheets, wb.SheetNames[i]), wb, i, opts, nfs, ((wb.Workbook||{}).WBProps||{}).date1904));
 		if((wb.Workbook||{}).Names) o.push(write_names_ods(wb.Workbook.Names, wb.SheetNames, -1));
 		o.push('    </office:spreadsheet>\n');
 		o.push('  </office:body>\n');
@@ -12557,7 +12674,6 @@ function write_ods(wb, opts) {
 
 	return zip;
 }
-
 function fix_opts_func(defaults) {
 	return function fix_opts(opts) {
 		for(var i = 0; i != defaults.length; ++i) {
@@ -12696,7 +12812,7 @@ function safe_parse_sheet(zip, path, relsPath, sheet, idx, sheetRels, sheets, st
 			case 'dialog': _ws = parse_ds(data, path, idx, opts, sheetRels[sheet], wb, themes, styles); break;
 			default: throw new Error("Unrecognized sheet type " + stype);
 		}
-		sheets[sheet] = _ws;
+		sheet_map_set(sheets, sheet, _ws);
 
 		/* scan rels for comments and threaded comments */
 		var comments = [], tcomments = [];
@@ -12819,7 +12935,7 @@ function parse_zip(zip, opts) {
 		if(opts.bookSheets && typeof sheets !== 'undefined') out.SheetNames = sheets;
 		if(opts.bookSheets ? out.SheetNames : opts.bookProps) return out;
 	}
-	sheets = {};
+	sheets = sheet_map_new();
 
 	var deps = {};
 	if(opts.bookDeps && dir.calcchain) deps=parse_cc(getzipdata(zip, strip_front_slash(dir.calcchain)),dir.calcchain,opts);
@@ -13019,7 +13135,7 @@ f = "docProps/app.xml";
 
 	for(rId=1;rId <= wb.SheetNames.length; ++rId) {
 		var wsrels = {'!id':{}};
-		var ws = wb.Sheets[wb.SheetNames[rId-1]];
+		var ws = sheet_map_get(wb.Sheets, wb.SheetNames[rId-1]);
 		var _type = (ws || {})["!type"] || "sheet";
 		switch(_type) {
 		case "chart":
@@ -13174,7 +13290,7 @@ f = "docProps/app.xml";
 
 	for(rId=1;rId <= wb.SheetNames.length; ++rId) {
 		var wsrels = {'!id':{}};
-		var ws = wb.Sheets[wb.SheetNames[rId-1]];
+		var ws = sheet_map_get(wb.Sheets, wb.SheetNames[rId-1]);
 		var _type = (ws || {})["!type"] || "sheet";
 		switch(_type) {
 		case "chart":
@@ -13270,7 +13386,6 @@ f = "docProps/app.xml";
 	delete opts.revssf; delete opts.ssf;
 	return zip;
 }
-
 function firstbyte(f,o) {
 	var x = "";
 	switch((o||{}).type || "base64") {
@@ -13539,18 +13654,18 @@ function writeSync(wb, opts) {
 		case 'xml':
 		case 'xlml': return write_string_type(write_xlml(wb, o), o);
 		case 'slk':
-		case 'sylk': return write_string_type(SYLK.from_sheet(wb.Sheets[wb.SheetNames[idx]], o, wb), o);
+		case 'sylk': return write_string_type(SYLK.from_sheet(sheet_map_get(wb.Sheets, wb.SheetNames[idx]), o, wb), o);
 		case 'htm':
-		case 'html': return write_string_type(sheet_to_html(wb.Sheets[wb.SheetNames[idx]], o), o);
-		case 'txt': return write_stxt_type(sheet_to_txt(wb.Sheets[wb.SheetNames[idx]], o), o);
-		case 'csv': return write_string_type(sheet_to_csv(wb.Sheets[wb.SheetNames[idx]], o), o, "\ufeff");
-		case 'dif': return write_string_type(DIF.from_sheet(wb.Sheets[wb.SheetNames[idx]], o), o);
-		case 'dbf': return write_binary_type(DBF.from_sheet(wb.Sheets[wb.SheetNames[idx]], o), o);
-		case 'prn': return write_string_type(PRN.from_sheet(wb.Sheets[wb.SheetNames[idx]], o), o);
-		case 'rtf': return write_string_type(sheet_to_rtf(wb.Sheets[wb.SheetNames[idx]], o), o);
-		case 'eth': return write_string_type(ETH.from_sheet(wb.Sheets[wb.SheetNames[idx]], o), o);
+		case 'html': return write_string_type(sheet_to_html(sheet_map_get(wb.Sheets, wb.SheetNames[idx]), o), o);
+		case 'txt': return write_stxt_type(sheet_to_txt(sheet_map_get(wb.Sheets, wb.SheetNames[idx]), o), o);
+		case 'csv': return write_string_type(sheet_to_csv(sheet_map_get(wb.Sheets, wb.SheetNames[idx]), o), o, "\ufeff");
+		case 'dif': return write_string_type(DIF.from_sheet(sheet_map_get(wb.Sheets, wb.SheetNames[idx]), o), o);
+		case 'dbf': return write_binary_type(DBF.from_sheet(sheet_map_get(wb.Sheets, wb.SheetNames[idx]), o), o);
+		case 'prn': return write_string_type(PRN.from_sheet(sheet_map_get(wb.Sheets, wb.SheetNames[idx]), o), o);
+		case 'rtf': return write_string_type(sheet_to_rtf(sheet_map_get(wb.Sheets, wb.SheetNames[idx]), o), o);
+		case 'eth': return write_string_type(ETH.from_sheet(sheet_map_get(wb.Sheets, wb.SheetNames[idx]), o), o);
 		case 'fods': return write_string_type(write_ods(wb, o), o);
-		case 'wk1': return write_binary_type(WK_.sheet_to_wk1(wb.Sheets[wb.SheetNames[idx]], o), o);
+		case 'wk1': return write_binary_type(WK_.sheet_to_wk1(sheet_map_get(wb.Sheets, wb.SheetNames[idx]), o), o);
 		case 'wk3': return write_binary_type(WK_.book_to_wk3(wb, o), o);
 		case 'biff2': if(!o.biff) o.biff = 2; /* falls through */
 		case 'biff3': if(!o.biff) o.biff = 3; /* falls through */
@@ -13810,6 +13925,7 @@ function sheet_add_json(_ws, js, opts) {
 			var _origin = typeof o.origin == "string" ? decode_cell(o.origin) : o.origin;
 			_R = _origin.r; _C = _origin.c;
 		}
+		if(!isFinite(_R) || _R !== Math.floor(_R) || _R < -1 || !isFinite(_C) || _C !== Math.floor(_C) || _C < 0) throw new Error("Invalid origin");
 	}
 	var range = ({s: {c:0, r:0}, e: {c:_C, r:_R + js.length - 1 + offset}});
 	if(ws['!ref']) {
@@ -13901,7 +14017,7 @@ function wb_sheet_idx(wb, sh) {
 
 /* simple blank or single-sheet workbook object */
 function book_new(ws, wsname) {
-	var wb = { SheetNames: [], Sheets: {} };
+	var wb = { SheetNames: [], Sheets: sheet_map_new() };
 	if(ws) book_append_sheet(wb, ws, wsname || "Sheet1");
 	return wb;
 }
@@ -13921,7 +14037,7 @@ function book_append_sheet(wb, ws, name, roll) {
 	if(wb.SheetNames.indexOf(name) >= 0) throw new Error("Worksheet with name |" + name + "| already exists!");
 
 	wb.SheetNames.push(name);
-	wb.Sheets[name] = ws;
+	sheet_map_set(wb.Sheets, name, ws);
 	return name;
 }
 
@@ -13988,7 +14104,6 @@ function sheet_set_array_formula(ws, range, formula, dynamic) {
 	ws["!ref"] = encode_range(wsr);
 	return ws;
 }
-
 var utils = {
 	encode_col: encode_col,
 	encode_row: encode_row,

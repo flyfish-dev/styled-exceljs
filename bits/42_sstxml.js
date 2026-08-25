@@ -127,13 +127,13 @@ var parse_rs = /*#__PURE__*/(function() {
 
 /* Parse a list of <r> tags */
 var rs_to_html = /*#__PURE__*/(function parse_rs_factory() {
-	var nlregex = /(\r\n|\n)/g;
 	function parse_rpr2(font, intro, outro) {
 		var style/*:Array<string>*/ = [];
 
 		if(font.u) style.push("text-decoration: underline;");
-		if(font.uval) style.push("text-underline-style:" + font.uval + ";");
-		if(font.sz) style.push("font-size:" + font.sz + "pt;");
+		if(font.uval && /^(?:single|double|single-accounting|double-accounting)$/.test(font.uval)) style.push("text-underline-style:" + font.uval + ";");
+		var sz = +font.sz;
+		if(isFinite(sz) && sz > 0) style.push("font-size:" + Math.min(sz, 409) + "pt;");
 		if(font.outline) style.push("text-effect: outline;");
 		if(font.shadow) style.push("text-shadow: auto;");
 		intro.push('<span style="' + style.join("") + '">');
@@ -158,7 +158,7 @@ var rs_to_html = /*#__PURE__*/(function parse_rs_factory() {
 
 		if(r.s) parse_rpr2(r.s, terms[0], terms[2]);
 
-		return terms[0].join("") + terms[1].replace(nlregex,'<br/>') + terms[2].join("");
+		return terms[0].join("") + escapehtml(terms[1]) + terms[2].join("");
 	}
 
 	return function parse_rs(rs) {

@@ -247,7 +247,7 @@ function dbf_to_workbook(buf, opts)/*:Workbook*/ {
 		o.bookType = "dbf";
 		return o;
 	} catch(e) { if(opts && opts.WTF) throw e; }
-	return ({SheetNames:[],Sheets:{}});
+	return ({SheetNames:[],Sheets:sheet_map_new()});
 }
 
 var _RLEN = { 'B': 8, 'C': 250, 'L': 1, 'D': 8, '?': 0, '': 0 };
@@ -1143,7 +1143,7 @@ function read_wb_TABL(d, opts) {
 	try {
 		var out = DIF.to_workbook(d, o);
 		if(!out || !out.Sheets) throw "DIF bad workbook";
-		var ws = out.Sheets[out.SheetNames[0]];
+		var ws = sheet_map_get(out.Sheets, out.SheetNames[0]);
 		if(!ws || !ws["!ref"]) throw "DIF empty worksheet";
 		o.WTF = OLD_WTF;
 		return out;

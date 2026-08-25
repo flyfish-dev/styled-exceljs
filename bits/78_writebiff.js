@@ -141,7 +141,7 @@ function write_biff2_buf(wb/*:Workbook*/, opts/*:WriteOpts*/) {
 	o.cellXfs = [{numFmtId: 0}];
 	o._BIFF2FmtTable/*:Array<string>*/ = ["General"]; o._Fonts = [];
 	var body = buf_array();
-	write_ws_biff2(body, wb.Sheets[wb.SheetNames[idx]], idx, o, wb);
+	write_ws_biff2(body, sheet_map_get(wb.Sheets, wb.SheetNames[idx]), idx, o, wb);
 
 	o._BIFF2FmtTable.forEach(function(f) {
 		if(o.biff <= 3) write_biff_rec(ba, 0x001E, write_BIFF2Format(f));
@@ -552,7 +552,7 @@ function write_ws_biff8_cell(ba/*:BufArray*/, cell/*:Cell*/, R/*:number*/, C/*:n
 /* [MS-XLS] 2.1.7.20.5 */
 function write_ws_biff8(idx/*:number*/, opts, wb/*:Workbook*/) {
 	var ba = buf_array();
-	var s = wb.SheetNames[idx], ws = wb.Sheets[s] || {};
+	var s = wb.SheetNames[idx], ws = sheet_map_get(wb.Sheets, s) || {};
 	var _WB/*:WBWBProps*/ = ((wb||{}).Workbook||{}/*:any*/);
 	var _sheet/*:WBWSProp*/ = ((_WB.Sheets||[])[idx]||{}/*:any*/);
 	var dense = ws["!data"] != null;
@@ -751,7 +751,7 @@ function write_biff8_buf(wb/*:Workbook*/, opts/*:WriteOpts*/) {
 
 function write_biff_buf(wb/*:Workbook*/, opts/*:WriteOpts*/) {
 	for(var i = 0; i <= wb.SheetNames.length; ++i) {
-		var ws = wb.Sheets[wb.SheetNames[i]];
+		var ws = sheet_map_get(wb.Sheets, wb.SheetNames[i]);
 		if(!ws || !ws["!ref"]) continue;
 		var range = decode_range(ws["!ref"]);
 		if(range.e.c > 255) { // note: 255 is IV

@@ -1529,11 +1529,11 @@ describe('write features', function() {
 			var str = X.write(wb, {bookType:"html", type:"binary"});
 			assert.ok(str.indexOf("<b>abc</b>") > 0);
 		});
-		it('should remove javascript: URLs when sanitizeLinks is true', function() {
+		it('should remove javascript: URLs by default', function() {
 			var sheet = X.utils.aoa_to_sheet([["Click me"]]);
 			get_cell(sheet, "A1").l = { Target: "javascript:alert('xss')" };
 
-			assert.ok(X.utils.sheet_to_html(sheet).indexOf("javascript:alert") > -1, "javascript: should not be stripped by default");
+			assert.ok(X.utils.sheet_to_html(sheet).indexOf("javascript:alert") === -1, "javascript: should be stripped by default");
 
 			assert.ok(X.utils.sheet_to_html(sheet, { sanitizeLinks: true }).indexOf("javascript:alert") === -1, "javascript: should be stripped with sanitizeLinks");
 		});

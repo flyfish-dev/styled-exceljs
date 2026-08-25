@@ -13,7 +13,7 @@ function parse_Cache(data/*:string*/)/*:[Array<number|string>, string, ?string]*
 	/* 21.2.2.71 formatCode CT_Xstring */
 	var nf = unescapexml((str_match_xml(data, "c:formatCode") || ["","General"])[1]);
 
-	(str_match_ng(data, "<c:f>", "</c:f>")||[]).forEach(function(F) { f = F.replace(/<[^<>]*>/g,""); });
+	(str_match_ng(data, "<c:f>", "</c:f>")||[]).forEach(function(F) { f = strip_xml_tags(F); });
 
 	return [col, nf, f];
 }
@@ -30,7 +30,7 @@ function parse_chart_cache(data) {
 		return {values:s[0], formatCode:s[1], formula:s[2]};
 	}
 	var f = (str_match_ng(data, "<c:f>", "</c:f>")||[])[0];
-	return {values:[], formula:f ? f.replace(/<[^<>]*>/g,"") : void 0};
+	return {values:[], formula:f ? strip_xml_tags(f) : void 0};
 }
 
 function parse_chart_tx(data) {
@@ -62,7 +62,7 @@ function parse_chart_title(data) {
 	var title = str_match_xml_ns(data, "title");
 	if(!title) return "";
 	var out = [];
-	(title[0].match(/<a:t\b[^>]*>[\s\S]*?<\/a:t>/g)||[]).forEach(function(t) { out.push(unescapexml(t.replace(/<[^>]*>/g, ""))); });
+	(title[0].match(/<a:t\b[^>]*>[\s\S]*?<\/a:t>/g)||[]).forEach(function(t) { out.push(unescapexml(strip_xml_tags(t))); });
 	return out.join("");
 }
 

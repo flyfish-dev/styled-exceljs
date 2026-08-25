@@ -996,7 +996,7 @@ function write_SHEETPROTECT(ba, ws) {
 
 function write_ws_bin(idx/*:number*/, opts, wb/*:Workbook*/, rels) {
 	var ba = buf_array();
-	var s = wb.SheetNames[idx], ws = wb.Sheets[s] || {};
+	var s = wb.SheetNames[idx], ws = sheet_map_get(wb.Sheets, s) || {};
 	var c/*:string*/ = s; try { if(wb && wb.Workbook) c = wb.Workbook.Sheets[idx].CodeName || c; } catch(e) {}
 	var r = safe_decode_range(ws['!ref'] || "A1");
 	if(r.e.c > 0x3FFF || r.e.r > 0xFFFFF) {

@@ -102,9 +102,25 @@ function format_cell(cell/*:Cell*/, v/*:any*/, o/*:any*/) {
 	return safe_format_cell(cell, v);
 }
 
+/* Worksheet names are document-controlled.  A normal object treats
+ * "__proto__" as a setter, so all workbook sheet maps must use an own-property
+ * preserving dictionary and all lookups must reject inherited properties. */
+function sheet_map_new() {
+	return Object.create ? Object.create(null) : {};
+}
+function sheet_map_set(sheets, name/*:string*/, sheet/*:Worksheet*/) {
+	if(name == "__proto__" && Object.defineProperty) Object.defineProperty(sheets, name, {
+		value: sheet, configurable: true, enumerable: true, writable: true
+	});
+	else sheets[name] = sheet;
+}
+function sheet_map_get(sheets, name/*:string*/)/*:?Worksheet*/ {
+	return sheets != null && Object.prototype.hasOwnProperty.call(sheets, name) ? sheets[name] : void 0;
+}
+
 function sheet_to_workbook(sheet/*:Worksheet*/, opts)/*:Workbook*/ {
 	var n = opts && opts.sheet ? opts.sheet : "Sheet1";
-	var sheets = {}; sheets[n] = sheet;
+	var sheets = sheet_map_new(); sheet_map_set(sheets, n, sheet);
 	return { SheetNames: [n], Sheets: sheets };
 }
 
