@@ -10,7 +10,7 @@
 	"dependencies": {
 	},
 	"devDependencies": {
-		"esbuild": "0.14.14"
+		"esbuild": "0.25.0"
 	},
 	"repository": {
 		"type": "git",
