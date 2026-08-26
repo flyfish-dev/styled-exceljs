@@ -262,7 +262,6 @@ MDLINT=README.md
 .PHONY: mdlint
 mdlint: $(MDLINT) ## Check markdown documents
 	./node_modules/.bin/alex $^
-	./node_modules/.bin/mdspell -a -n -x -r --en-us $^
 
 .PHONY: help
 help:

@@ -8,11 +8,11 @@ jobs:
     name: 'full (with codepage)'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: denoland/setup-deno@main
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v1.x
-      - uses: ljharb/actions/node/install@main
+      - uses: ljharb/actions/node/install@0bcc7d54e896945b7b47d1338c6a96d39c42638c
         with:
           node-version: '16.'
       - run: sudo curl -Lo /usr/bin/rooster https://github.com/SheetJS/rooster/releases/download/v0.2.0/rooster-v0.2.0-linux-amd64
@@ -25,11 +25,11 @@ jobs:
     name: 'full (no codepage)'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: denoland/setup-deno@main
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v1.x
-      - uses: ljharb/actions/node/install@main
+      - uses: ljharb/actions/node/install@0bcc7d54e896945b7b47d1338c6a96d39c42638c
         with:
           node-version: '16.'
       - run: sudo curl -Lo /usr/bin/rooster https://github.com/SheetJS/rooster/releases/download/v0.2.0/rooster-v0.2.0-linux-amd64
