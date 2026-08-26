@@ -150,4 +150,11 @@ const stylesDisabledWorkbook = XLSX.read(createFixture(), {
 })
 assert.equal(stylesDisabledWorkbook.Sheets.Table['!tables'], undefined)
 
+const maliciousBaseStyle = JSON.parse('{"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"fill":{"patternType":"solid"}}')
+const sanitizedStyle = XLSX.utils.resolve_table_cell_style(worksheet, 1, 0, maliciousBaseStyle)
+assert.equal(sanitizedStyle.polluted, undefined)
+assert.equal(Object.prototype.polluted, undefined)
+assert.equal(Object.prototype.hasOwnProperty.call(sanitizedStyle, '__proto__'), false)
+assert.equal(Object.prototype.hasOwnProperty.call(sanitizedStyle, 'constructor'), false)
+
 console.log(`styled-exceljs table-style regression passed (${fixturePath || 'generated fixture'})`)

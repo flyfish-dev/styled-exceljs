@@ -12070,6 +12070,10 @@ function parse_tableStyles(t, styles, opts) {
 				break;
 			case '<tableStyles/>': case '</tableStyles>': break;
 			case '<tableStyle': case '<tableStyle>': case '<tableStyle/>':
+				if(styles.TableStyles.styles.length >= TABLE_STYLE_MAX_TABLES) {
+					tableStyle = null;
+					break;
+				}
 				tableStyle = {
 					name:utf8read(unescapexml(y.name || "")),
 					pivot:y.pivot != null ? parsexmlbool(y.pivot) : false,
@@ -12081,7 +12085,7 @@ function parse_tableStyles(t, styles, opts) {
 				break;
 			case '</tableStyle>': tableStyle = null; break;
 			case '<tableStyleElement': case '<tableStyleElement>': case '<tableStyleElement/>':
-				if(tableStyle && y.type && y.dxfId != null) tableStyle.elements.push({
+				if(tableStyle && tableStyle.elements.length < 64 && table_style_element_type(y.type) && y.dxfId != null) tableStyle.elements.push({
 					type:y.type,
 					dxfId:parseInt(y.dxfId, 10),
 					size:y.size != null ? Math.max(1, parseInt(y.size, 10) || 1) : 1
@@ -17430,7 +17434,24 @@ function write_ws_xml(idx/*:number*/, opts, wb/*:Workbook*/, rels)/*:string*/ {
 	return o.join("");
 }
 var TABLE_STYLE_MAX_TABLES = 1024;
+var TABLE_STYLE_MAX_COLUMNS = 16384;
 var TABLE_STYLE_MAX_XML_LENGTH = 5 * 1024 * 1024;
+var TABLE_STYLE_ELEMENT_TYPES = {
+	wholeTable:true, headerRow:true, totalRow:true,
+	firstColumn:true, lastColumn:true,
+	firstRowStripe:true, secondRowStripe:true,
+	firstColumnStripe:true, secondColumnStripe:true,
+	firstHeaderCell:true, lastHeaderCell:true,
+	firstTotalCell:true, lastTotalCell:true
+};
+
+function table_style_safe_key(key) {
+	return key != "__proto__" && key != "constructor" && key != "prototype";
+}
+
+function table_style_element_type(type) {
+	return Object.prototype.hasOwnProperty.call(TABLE_STYLE_ELEMENT_TYPES, type);
+}
 
 function table_style_attr(y, name) {
 	if(y[name] != null) return y[name];
@@ -17453,10 +17474,11 @@ function table_style_merge(target, source) {
 	if(!source) return target;
 	if(!target) target = {};
 	keys(source).forEach(function(k) {
+		if(!table_style_safe_key(k)) return;
 		var value = source[k];
 		if(value && typeof value == "object" && !Array.isArray(value)) {
 			target[k] = table_style_merge(
-				target[k] && typeof target[k] == "object" && !Array.isArray(target[k]) ? dup(target[k]) : {},
+				target[k] && typeof target[k] == "object" && !Array.isArray(target[k]) ? table_style_merge({}, target[k]) : {},
 				value
 			);
 		} else target[k] = value;
@@ -17561,8 +17583,9 @@ function custom_table_style_rules(name, styles) {
 	for(var i = 0; i < tableStyles.styles.length; ++i) {
 		var tableStyle = tableStyles.styles[i];
 		if(tableStyle.name != name) continue;
-		var rules = {};
+		var rules = Object.create(null);
 		(tableStyle.elements || []).forEach(function(element) {
+			if(!table_style_element_type(element.type)) return;
 			var dxf = styles.Dxfs && styles.Dxfs[element.dxfId];
 			if(dxf) rules[element.type] = {style:dup(dxf), size:element.size || 1};
 		});
@@ -17592,6 +17615,10 @@ function parse_table_xml(data, path, themes, styles, opts) {
 				table.path = path;
 				break;
 			case '<tableColumn': case '<tableColumn>': case '<tableColumn/>':
+				if(table.columns.length >= TABLE_STYLE_MAX_COLUMNS) {
+					column = null;
+					break;
+				}
 				column = {
 					id:table_style_int(y, "id"),
 					name:utf8read(unescapexml(table_style_attr(y, "name") || "")),
@@ -17667,7 +17694,7 @@ function table_style_dxf(table, id) {
 
 function resolve_table_cell_style(ws, row, col, baseStyle) {
 	var tables = ws && ws['!tables'];
-	var resolved = baseStyle ? dup(baseStyle) : {};
+	var resolved = baseStyle ? table_style_merge({}, baseStyle) : {};
 	if(!tables || !tables.length) return keys(resolved).length ? resolved : void 0;
 	for(var i = 0; i < tables.length; ++i) {
 		var table = tables[i], range = table.range;

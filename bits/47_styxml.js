@@ -585,6 +585,10 @@ function parse_tableStyles(t, styles, opts) {
 				break;
 			case '<tableStyles/>': case '</tableStyles>': break;
 			case '<tableStyle': case '<tableStyle>': case '<tableStyle/>':
+				if(styles.TableStyles.styles.length >= TABLE_STYLE_MAX_TABLES) {
+					tableStyle = null;
+					break;
+				}
 				tableStyle = {
 					name:utf8read(unescapexml(y.name || "")),
 					pivot:y.pivot != null ? parsexmlbool(y.pivot) : false,
@@ -596,7 +600,7 @@ function parse_tableStyles(t, styles, opts) {
 				break;
 			case '</tableStyle>': tableStyle = null; break;
 			case '<tableStyleElement': case '<tableStyleElement>': case '<tableStyleElement/>':
-				if(tableStyle && y.type && y.dxfId != null) tableStyle.elements.push({
+				if(tableStyle && tableStyle.elements.length < 64 && table_style_element_type(y.type) && y.dxfId != null) tableStyle.elements.push({
 					type:y.type,
 					dxfId:parseInt(y.dxfId, 10),
 					size:y.size != null ? Math.max(1, parseInt(y.size, 10) || 1) : 1
