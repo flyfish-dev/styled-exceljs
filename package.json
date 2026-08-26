@@ -1,6 +1,6 @@
 {
 	"name": "styled-exceljs",
-	"version": "0.21.3",
+	"version": "0.21.4",
 	"author": "sheetjs",
 	"description": "SheetJS CE fork with enhanced XLS/XLSX styling and browser rendering",
 	"keywords": [
