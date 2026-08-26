@@ -27,78 +27,78 @@
 	"types": "types/index.d.ts",
 	"exports": {
 		".": {
+			"types": "./types/index.d.ts",
 			"import": "./xlsx.mjs",
-			"require": "./xlsx.js",
-			"types": "./types/index.d.ts"
+			"require": "./xlsx.js"
 		},
 		"./xlsx.mjs": {
-			"import": "./xlsx.mjs",
-			"types": "./types/index.d.ts"
+			"types": "./types/index.d.ts",
+			"import": "./xlsx.mjs"
 		},
 		"./xlsx.js": {
-			"require": "./xlsx.js",
-			"types": "./types/index.d.ts"
+			"types": "./types/index.d.ts",
+			"require": "./xlsx.js"
 		},
 		"./dist/xlsx.core.min": {
+			"types": "./types/index.d.ts",
 			"import": "./dist/xlsx.core.min.js",
-			"require": "./dist/xlsx.core.min.js",
-			"types": "./types/index.d.ts"
+			"require": "./dist/xlsx.core.min.js"
 		},
 		"./dist/xlsx.core.min.js": {
+			"types": "./types/index.d.ts",
 			"import": "./dist/xlsx.core.min.js",
-			"require": "./dist/xlsx.core.min.js",
-			"types": "./types/index.d.ts"
+			"require": "./dist/xlsx.core.min.js"
 		},
 		"./dist/xlsx.full.min": {
+			"types": "./types/index.d.ts",
 			"import": "./dist/xlsx.full.min.js",
-			"require": "./dist/xlsx.full.min.js",
-			"types": "./types/index.d.ts"
+			"require": "./dist/xlsx.full.min.js"
 		},
 		"./dist/xlsx.full.min.js": {
+			"types": "./types/index.d.ts",
 			"import": "./dist/xlsx.full.min.js",
-			"require": "./dist/xlsx.full.min.js",
-			"types": "./types/index.d.ts"
+			"require": "./dist/xlsx.full.min.js"
 		},
 		"./dist/xlsx.mini.min": {
+			"types": "./types/index.d.ts",
 			"import": "./dist/xlsx.mini.min.js",
-			"require": "./dist/xlsx.mini.min.js",
-			"types": "./types/index.d.ts"
+			"require": "./dist/xlsx.mini.min.js"
 		},
 		"./dist/xlsx.mini.min.js": {
+			"types": "./types/index.d.ts",
 			"import": "./dist/xlsx.mini.min.js",
-			"require": "./dist/xlsx.mini.min.js",
-			"types": "./types/index.d.ts"
+			"require": "./dist/xlsx.mini.min.js"
 		},
 		"./dist/xlsx.zahl": {
+			"types": "./dist/zahl.d.ts",
 			"import": "./dist/xlsx.zahl.mjs",
-			"require": "./dist/xlsx.zahl.js",
-			"types": "./dist/zahl.d.ts"
+			"require": "./dist/xlsx.zahl.js"
 		},
 		"./dist/xlsx.zahl.mjs": {
-			"import": "./dist/xlsx.zahl.mjs",
-			"types": "./dist/zahl.d.ts"
+			"types": "./dist/zahl.d.ts",
+			"import": "./dist/xlsx.zahl.mjs"
 		},
 		"./dist/xlsx.zahl.js": {
-			"require": "./dist/xlsx.zahl.js",
-			"types": "./dist/zahl.d.ts"
+			"types": "./dist/zahl.d.ts",
+			"require": "./dist/xlsx.zahl.js"
 		},
 		"./dist/cpexcel": {
+			"types": "./dist/cpexcel.d.ts",
 			"import": "./dist/cpexcel.full.mjs",
-			"require": "./dist/cpexcel.js",
-			"types": "./dist/cpexcel.d.ts"
+			"require": "./dist/cpexcel.js"
 		},
 		"./dist/cpexcel.js": {
-			"require": "./dist/cpexcel.js",
-			"types": "./dist/cpexcel.d.ts"
+			"types": "./dist/cpexcel.d.ts",
+			"require": "./dist/cpexcel.js"
 		},
 		"./dist/cpexcel.full": {
+			"types": "./dist/cpexcel.d.ts",
 			"import": "./dist/cpexcel.full.mjs",
-			"require": "./dist/cpexcel.js",
-			"types": "./dist/cpexcel.d.ts"
+			"require": "./dist/cpexcel.js"
 		},
 		"./dist/cpexcel.full.mjs": {
-			"import": "./dist/cpexcel.full.mjs",
-			"types": "./dist/cpexcel.d.ts"
+			"types": "./dist/cpexcel.d.ts",
+			"import": "./dist/cpexcel.full.mjs"
 		}
 	},
 	"browser": {
