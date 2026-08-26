@@ -455,7 +455,8 @@ var numbers_lut_new = function() {
 function numbers_format_cell(cell, t, flags, ofmt, nfmt) {
   var _a, _b, _c, _d;
   var ctype = t & 255, ver = t >> 8;
-  var fmt = ver >= 5 ? nfmt : ofmt;
+	/* Missing legacy/new format tables mean the default format. */
+	var fmt = (ver >= 5 ? nfmt : ofmt) || [];
   dur:
     if (flags & (ver > 4 ? 8 : 4) && cell.t == "n" && ctype == 7) {
       var dstyle = ((_a = fmt[7]) == null ? void 0 : _a[0]) ? varint_to_i32(fmt[7][0].data) : -1;
@@ -1514,7 +1515,7 @@ function write_numbers_iwa(wb, opts) {
       docroot = numbers_iwa_find(cfb, deps, 1);
       sheetrefs = mappa(parse_shallow(docroot.messages[0].data)[1], parse_TSP_Reference);
     }
-    write_numbers_ws(cfb, deps, wb.Sheets[name], name, idx, sheetrefs[idx]);
+    write_numbers_ws(cfb, deps, sheet_map_get(wb.Sheets, name), name, idx, sheetrefs[idx]);
   });
   return cfb;
 }
