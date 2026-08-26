@@ -79,6 +79,17 @@ interface CellStyle {
 和 XLS BIFF8 之间归一化。`fgColor`、`bgColor`、`patternType` 保留为
 兼容旧集成的别名字段。
 
+启用 `cellStyles:true` 后，OOXML 表对象会暴露在 `ws["!tables"]`。内置
+`TableStyleLight*`、`TableStyleMedium*`、`TableStyleDark*` 系列以及工作簿中
+自定义的 `tableStyles` 差异格式，都可以按可视单元格惰性解析：
+
+```js
+const style = XLSX.utils.resolve_table_cell_style(ws, rowIndex, columnIndex, cell.s);
+```
+
+解析器会处理标题行、汇总行、行列条纹、首末列强调，以及表级/列级差异格式，
+但不会为了表样式创建空单元格或在解析大表时展开整个表范围。
+
 颜色结构会尽量同时保留解析后的 RGB 和原始来源信息：
 
 ```ts

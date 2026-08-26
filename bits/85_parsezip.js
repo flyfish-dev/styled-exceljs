@@ -90,6 +90,7 @@ function safe_parse_sheet(zip, path/*:string*/, relsPath/*:string*/, sheet, idx/
 			case 'dialog': _ws = parse_ds(data, path, idx, opts, sheetRels[sheet], wb, themes, styles); break;
 			default: throw new Error("Unrecognized sheet type " + stype);
 		}
+		if(stype == "sheet") parse_sheet_tables(_ws, zip, path, sheetRels[sheet], opts, themes, styles);
 		sheet_map_set(sheets, sheet, _ws);
 
 		/* scan rels for comments and threaded comments */

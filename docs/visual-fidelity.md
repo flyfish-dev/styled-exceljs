@@ -74,6 +74,19 @@ interface CellStyle {
 XLSX and BIFF8 XLS.  The `fgColor`, `bgColor`, and `patternType` fields are
 preserved as compatibility aliases for older integrations.
 
+OOXML table definitions are exposed as `ws["!tables"]` when `cellStyles:true`
+is enabled. Built-in `TableStyleLight*`, `TableStyleMedium*`, and
+`TableStyleDark*` families as well as custom `tableStyles` differential formats
+can be resolved lazily for a visible cell:
+
+```js
+const style = XLSX.utils.resolve_table_cell_style(ws, rowIndex, columnIndex, cell.s);
+```
+
+The resolver honors header and totals rows, row and column banding, first and
+last column emphasis, and table/column differential-format overrides. It does
+not materialize blank cells or expand large table ranges during parsing.
+
 Colors may include resolved RGB as well as the original theme or palette data:
 
 ```ts

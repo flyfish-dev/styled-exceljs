@@ -27,6 +27,7 @@ var RELS = ({
 	MS: "http://schemas.microsoft.com/office/2006/relationships/xlMacrosheet",
 	IMG: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
 	DRAW: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing",
+	TABLE: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/table",
 	XLMETA: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata",
 	TCMNT: "http://schemas.microsoft.com/office/2017/10/relationships/threadedComment",
 	PEOPLE: "http://schemas.microsoft.com/office/2017/10/relationships/person",

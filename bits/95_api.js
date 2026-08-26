@@ -27,6 +27,7 @@ var utils/*:any*/ = {
 	measure_text_width: measure_text_width,
 	auto_fit_columns: auto_fit_columns,
 	autofit_columns: auto_fit_columns,
+	resolve_table_cell_style: resolve_table_cell_style,
 	col_width_to_px: width2px,
 	px_to_col_width: function(px) { return char2width(px2char(px)); },
 	row_height_to_px: pt2px_browser,

@@ -142,6 +142,7 @@
 	"scripts": {
 		"test": "make travis",
 		"test:security": "node tests/security-prototype-pollution.mjs",
+		"test:table-styles": "node tests/table-styles.mjs",
 		"build": "make",
 		"lint": "make fullint",
 		"dtslint": "dtslint types"

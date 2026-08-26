@@ -781,6 +781,42 @@ export interface DrawingInfo {
     groups?: boolean;
 }
 
+/** OOXML table style selection flags */
+export interface TableStyleInfo {
+    name?: string;
+    showFirstColumn?: boolean;
+    showLastColumn?: boolean;
+    showRowStripes?: boolean;
+    showColumnStripes?: boolean;
+}
+
+/** OOXML table column metadata used for differential styles */
+export interface TableColumnInfo {
+    id?: number;
+    name?: string;
+    headerRowDxfId?: number;
+    dataDxfId?: number;
+    totalsRowDxfId?: number;
+}
+
+/** Parsed OOXML table definition */
+export interface TableInfo {
+    id?: number;
+    name?: string;
+    displayName?: string;
+    ref: string;
+    range: Range;
+    path?: string;
+    headerRowCount?: number;
+    totalsRowCount?: number;
+    totalsRowShown?: boolean;
+    headerRowDxfId?: number;
+    dataDxfId?: number;
+    totalsRowDxfId?: number;
+    styleInfo?: TableStyleInfo;
+    columns?: TableColumnInfo[];
+}
+
 /** Merge validation error */
 export interface MergeError {
     code: string;
@@ -952,7 +988,7 @@ export interface AutoFilterInfo {
     ref: string;
 }
 
-export type WSKeys = SheetKeys | ColInfo[] | RowInfo[] | Range[] | ProtectInfo | AutoFilterInfo | ChartModel | ChartInfo[] | DrawingInfo | MergeError[];
+export type WSKeys = SheetKeys | ColInfo[] | RowInfo[] | Range[] | ProtectInfo | AutoFilterInfo | ChartModel | ChartInfo[] | DrawingInfo | TableInfo[] | MergeError[];
 
 /** Worksheet Object */
 export interface WorkSheet extends Sheet {
@@ -982,6 +1018,9 @@ export interface WorkSheet extends Sheet {
 
     /** Parsed drawing information */
     '!drawings'?: DrawingInfo;
+
+    /** Parsed OOXML table definitions when cellStyles is enabled */
+    '!tables'?: TableInfo[];
 
     /** Worksheet Protection info */
     '!protect'?: ProtectInfo;
@@ -1312,6 +1351,9 @@ export interface XLSX$Utils {
 
     /** Alias for auto_fit_columns */
     autofit_columns(worksheet: WorkSheet, opts?: AutoFitColumnOpts): ColInfo[];
+
+    /** Resolve the effective table style for a worksheet cell without mutating the worksheet */
+    resolve_table_cell_style(worksheet: WorkSheet, row: number, col: number, baseStyle?: CellStyle): CellStyle | undefined;
 
     /** Convert XLSX column width to browser pixels */
     col_width_to_px(width: number): number;

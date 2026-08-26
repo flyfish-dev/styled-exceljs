@@ -239,6 +239,7 @@ function make_html_row(ws/*:Worksheet*/, r/*:Range*/, R/*:number*/, o/*:Sheet2HT
 			if(cols[C] && cols[C].s) extend_style_obj(inherited, cols[C].s);
 			if(row && row.s) extend_style_obj(inherited, row.s);
 			if(cell && cell.s) extend_style_obj(inherited, cell.s);
+			inherited = resolve_table_cell_style(ws, R, C, inherited) || inherited;
 			if(keys(inherited).length) {
 				stylecell = cell ? dup(cell) : {t:'z'};
 				stylecell.s = inherited;

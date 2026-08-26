@@ -40,6 +40,7 @@ bits/61_fcommon.js
 bits/65_fods.js
 bits/66_wscommon.js
 bits/67_wsxml.js
+bits/67_tablexml.js
 bits/69_chartxml.js
 misc/70_csheet.js
 bits/71_wbcommon.js

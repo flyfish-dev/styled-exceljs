@@ -573,6 +573,43 @@ function parse_dxfs(t, styles, themes, opts) {
 	});
 }
 
+function parse_tableStyles(t, styles, opts) {
+	styles.TableStyles = {styles:[]};
+	var tableStyle = null, pass = false;
+	(t.match(tagregex)||[]).forEach(function(x) {
+		var y = parsexmltag(x), tag = strip_ns(y[0]);
+		switch(tag) {
+			case '<tableStyles': case '<tableStyles>':
+				if(y.defaultTableStyle) styles.TableStyles.defaultTableStyle = utf8read(unescapexml(y.defaultTableStyle));
+				if(y.defaultPivotStyle) styles.TableStyles.defaultPivotStyle = utf8read(unescapexml(y.defaultPivotStyle));
+				break;
+			case '<tableStyles/>': case '</tableStyles>': break;
+			case '<tableStyle': case '<tableStyle>': case '<tableStyle/>':
+				tableStyle = {
+					name:utf8read(unescapexml(y.name || "")),
+					pivot:y.pivot != null ? parsexmlbool(y.pivot) : false,
+					table:y.table != null ? parsexmlbool(y.table) : true,
+					elements:[]
+				};
+				styles.TableStyles.styles.push(tableStyle);
+				if(tag.slice(-2) == "/>") tableStyle = null;
+				break;
+			case '</tableStyle>': tableStyle = null; break;
+			case '<tableStyleElement': case '<tableStyleElement>': case '<tableStyleElement/>':
+				if(tableStyle && y.type && y.dxfId != null) tableStyle.elements.push({
+					type:y.type,
+					dxfId:parseInt(y.dxfId, 10),
+					size:y.size != null ? Math.max(1, parseInt(y.size, 10) || 1) : 1
+				});
+				break;
+			case '<extLst': case '<extLst>': case '</extLst>': break;
+			case '<ext': pass = true; break;
+			case '</ext>': pass = false; break;
+			default: if(opts && opts.WTF && !pass) throw new Error('unrecognized ' + y[0] + ' in tableStyles');
+		}
+	});
+}
+
 function parse_colors(t, styles, themes, opts) {
 	styles.Colors = {indexedColors:[], mruColors:[], themeColors:[]};
 	var target = null, pass = false;
@@ -651,6 +688,7 @@ return function parse_sty_xml(data, themes, opts) {
 	if((t=str_match_xml_ns(data, "dxfs"))) parse_dxfs(t[0], styles, themes, opts);
 
 	/* 18.8.42 tableStyles CT_TableStyles ? */
+	if((t=str_match_xml_ns(data, "tableStyles"))) parse_tableStyles(t[0], styles, opts);
 	/* 18.8.11 colors CT_Colors ? */
 	if((t=str_match_xml_ns(data, "colors"))) parse_colors(t[0], styles, themes, opts);
 
