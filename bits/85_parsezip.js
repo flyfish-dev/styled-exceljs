@@ -111,7 +111,9 @@ function safe_parse_sheet(zip, path/*:string*/, relsPath/*:string*/, sheet, idx/
 		if(tcomments && tcomments.length) sheet_insert_comments(_ws, tcomments, true, opts.people || []);
 		if(stype == "sheet") parse_sheet_drawing(_ws, stype, zip, path, idx, opts, wb);
 		parse_sheet_legacy_drawing(_ws, stype, zip, path, idx, opts, wb, comments);
-	} catch(e) { if(opts.WTF) throw e; }
+	} catch(e) {
+		if(opts.WTF || (opts.validateMerges && e && /^E_MERGE_/.test(e.code))) throw e;
+	}
 }
 
 function strip_front_slash(x/*:string*/)/*:string*/ { return x.charAt(0) == '/' ? x.slice(1) : x; }

@@ -631,7 +631,7 @@ export interface CellStyle extends FillStyle {
 
 export interface TextMeasureOpts {
     /** Browser-compatible text measurement callback. Receives text, CSS font string, and resolved style. */
-    measureText?: (text: string, font: string, style: CellStyle) => number;
+    measureText?(text: string, font: string, style: CellStyle): number;
     /** Optional canvas-like object used for browser measureText fallback */
     canvas?: any;
     /** Maximum digit width in CSS pixels for Excel width conversion */
@@ -1198,7 +1198,7 @@ export interface Sheet2HTMLOpts {
     overflow?: HTMLOverflowMode;
 
     /** Browser-compatible text measurement callback used by autoFit and shrink-to-fit */
-    measureText?: (text: string, font: string, style: CellStyle) => number;
+    measureText?(text: string, font: string, style: CellStyle): number;
 
     /** Optional canvas-like object used for text measurement */
     canvas?: any;

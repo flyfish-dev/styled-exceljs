@@ -112,7 +112,7 @@ function parse_ws_xml(data/*:?string*/, opts, idx/*:number*/, rels, wb/*:WBWBPro
 	if(columns.length > 0) s["!cols"] = columns;
 	if(merges.length > 0) {
 		s["!merges"] = merges;
-		var mergeErrors = validate_merges(s, {WTF: !!(opts && (opts.WTF || opts.validateMerges))});
+		var mergeErrors = validate_merges(s, {WTF: !!(opts && opts.validateMerges)});
 		if(mergeErrors.length) s["!mergeErrors"] = mergeErrors;
 	}
 	if(rels['!id'][s['!rel']]) s['!drawel'] = rels['!id'][s['!rel']];
@@ -227,8 +227,9 @@ function parse_ws_xml_cols(columns, cols) {
 		var colm=parseInt(coll.min, 10)-1, colM=parseInt(coll.max,10)-1;
 		if(coll.outlineLevel) coll.level = (+coll.outlineLevel || 0);
 		delete coll.min; delete coll.max; coll.width = +coll.width;
-		/* OOXML widths share the workbook Normal-font MDW; do not infer a different scale per sheet. */
-		if(!seencol && coll.width) { seencol = true; MDW = DEF_MDW; }
+		/* Start from the compatibility fallback for every worksheet so a prior
+		 * sheet cannot leak its inferred Normal-font metric into this one. */
+		if(!seencol && coll.width) { seencol = true; MDW = DEF_MDW; find_mdw_colw(coll.width); }
 		process_col(coll);
 		while(colm <= colM) columns[colm++] = dup(coll);
 	}
@@ -650,7 +651,7 @@ function write_ws_xml(idx/*:number*/, opts, wb/*:Workbook*/, rels)/*:string*/ {
 	/* customSheetViews */
 
 	if(ws['!merges'] != null && ws['!merges'].length > 0) {
-		validate_merges(ws, {WTF:true});
+		validate_merges(ws, {WTF: !!(opts && opts.validateMerges)});
 		o[o.length] = (write_ws_xml_merges(ws['!merges']));
 	}
 

@@ -3872,7 +3872,7 @@ function escapexmltag(text){ return escapexml(text).replace(/ /g,"_x0020_"); }
 var htmlcharegex = /[\u0000-\u001f]/g;
 function escapehtml(text){
 	var s = text + '';
-	return s.replace(decregex, function(y) { return rencoding[y]; }).replace(/\n/g, "<br/>").replace(htmlcharegex,function(s) { return "&#x" + ("000"+s.charCodeAt(0).toString(16)).slice(-4) + ";"; });
+	return s.replace(decregex, function(y) { return rencoding[y]; }).replace(/\r\n|\r|\n/g, "<br/>").replace(htmlcharegex,function(s) { return "&#x" + ("000"+s.charCodeAt(0).toString(16)).slice(-4) + ";"; });
 }
 
 function escapexlml(text){
@@ -11139,7 +11139,10 @@ function resolve_style_obj_color(obj, themes) {
 
 /* 18.3.1.13 width calculations */
 /* [MS-OI29500] 2.1.595 Column Width & Formatting */
-var DEF_MDW = 7, MAX_MDW = 15, MIN_MDW = 1, MDW = DEF_MDW;
+/* The file format does not store MDW directly.  Six is the historical
+ * fallback when Normal-font metrics are unavailable; binary and OOXML readers
+ * refine it from the first stored character width in each worksheet. */
+var DEF_MDW = 6, MAX_MDW = 15, MIN_MDW = 1, MDW = DEF_MDW;
 function width2px(width) { return Math.floor(( width + (Math.round(128/MDW))/256 )* MDW ); }
 function px2char(px) { return (Math.floor((px - 5)/MDW * 100 + 0.5))/100; }
 function char2width(chr) { return (Math.round((chr * MDW + 5)/MDW*256))/256; }
@@ -16617,7 +16620,11 @@ function validate_merges(ws, opts) {
 				errors.push({code:"E_MERGE_OVERLAP", message:"Merge ranges overlap", index:i, other:j, range:enc, otherRange:encode_range(merges[j])});
 		}
 	}
-	if(errors.length && opts && opts.WTF) throw new Error(errors[0].message + " (" + (errors[0].range || errors[0].index) + ")");
+	if(errors.length && opts && opts.WTF) {
+		var err = new Error(errors[0].message + " (" + (errors[0].range || errors[0].index) + ")");
+		err.code = errors[0].code;
+		throw err;
+	}
 	return errors;
 }
 
@@ -17047,7 +17054,7 @@ function parse_ws_xml(data, opts, idx, rels, wb, themes, styles) {
 	if(columns.length > 0) s["!cols"] = columns;
 	if(merges.length > 0) {
 		s["!merges"] = merges;
-		var mergeErrors = validate_merges(s, {WTF: !!(opts && (opts.WTF || opts.validateMerges))});
+		var mergeErrors = validate_merges(s, {WTF: !!(opts && opts.validateMerges)});
 		if(mergeErrors.length) s["!mergeErrors"] = mergeErrors;
 	}
 	if(rels['!id'][s['!rel']]) s['!drawel'] = rels['!id'][s['!rel']];
@@ -17162,8 +17169,9 @@ function parse_ws_xml_cols(columns, cols) {
 		var colm=parseInt(coll.min, 10)-1, colM=parseInt(coll.max,10)-1;
 		if(coll.outlineLevel) coll.level = (+coll.outlineLevel || 0);
 		delete coll.min; delete coll.max; coll.width = +coll.width;
-		/* OOXML widths share the workbook Normal-font MDW; do not infer a different scale per sheet. */
-		if(!seencol && coll.width) { seencol = true; MDW = DEF_MDW; }
+		/* Start from the compatibility fallback for every worksheet so a prior
+		 * sheet cannot leak its inferred Normal-font metric into this one. */
+		if(!seencol && coll.width) { seencol = true; MDW = DEF_MDW; find_mdw_colw(coll.width); }
 		process_col(coll);
 		while(colm <= colM) columns[colm++] = dup(coll);
 	}
@@ -17585,7 +17593,7 @@ function write_ws_xml(idx, opts, wb, rels) {
 	/* customSheetViews */
 
 	if(ws['!merges'] != null && ws['!merges'].length > 0) {
-		validate_merges(ws, {WTF:true});
+		validate_merges(ws, {WTF: !!(opts && opts.validateMerges)});
 		o[o.length] = (write_ws_xml_merges(ws['!merges']));
 	}
 
@@ -18333,7 +18341,7 @@ function parse_ws_bin(data, _opts, idx, rels, wb, themes, styles) {
 				if(!opts.cellStyles) break;
 				while(val.e >= val.s) {
 					colinfo[val.e--] = { width: val.w/256, hidden: !!(val.flags & 0x01), level: val.level };
-					if(!seencol) { seencol = true; MDW = DEF_MDW; }
+					if(!seencol) { seencol = true; MDW = DEF_MDW; find_mdw_colw(val.w/256); }
 					process_col(colinfo[val.e+1]);
 				}
 				break;
@@ -19071,7 +19079,6 @@ function check_wb(wb) {
 	check_wb_names(wb.SheetNames, Sheets, !!wb.vbaraw);
 	for(var i = 0; i < wb.SheetNames.length; ++i) {
 		var ws = sheet_map_get(wb.Sheets, wb.SheetNames[i]);
-		if(!ws) throw new Error("Missing worksheet |" + wb.SheetNames[i] + "|");
 		check_ws(ws, wb.SheetNames[i], i);
 	}
 	wb.SheetNames.forEach(function(n, i) {
@@ -21489,7 +21496,7 @@ function parse_workbook(blob, options) {
 	};
 	var finalize_sheet_visuals = function finalizesheetvisuals(ws) {
 		if(ws["!merges"] && ws["!merges"].length) {
-			var mergeErrors = validate_merges(ws, {WTF: !!(options && (options.WTF || options.validateMerges))});
+			var mergeErrors = validate_merges(ws, {WTF: !!(options && options.validateMerges)});
 			if(mergeErrors.length) ws["!mergeErrors"] = mergeErrors;
 		}
 		if(drawings && (drawings.images.length || drawings.shapes.length || drawings.charts.length || drawings.raw.length)) ws["!drawings"] = drawings;
@@ -21877,7 +21884,7 @@ wb.opts.Date1904 = Workbook.WBProps.date1904 = val; break;
 					while(val.e >= val.s) {
 						colinfo[val.e--] = { width: val.w/256, level: (val.level || 0), hidden: !!(val.flags & 1) };
 						if(val.ixfe != null && XFs[val.ixfe]) colinfo[val.e+1].s = resolve_xls_style(XFs[val.ixfe], val.ixfe);
-						if(!seencol) { seencol = true; MDW = DEF_MDW; }
+						if(!seencol) { seencol = true; MDW = DEF_MDW; find_mdw_colw(val.w/256); }
 						process_col(colinfo[val.e+1]);
 					}
 				} break;
@@ -24044,7 +24051,7 @@ function write_ws_biff8(idx, opts, wb) {
 	if(b8) write_biff_rec(ba, 0x023e /* Window2 */, write_Window2((_WB.Views||[])[0]));
 	/* ... */
 	if(b8 && (ws['!merges']||[]).length) {
-		validate_merges(ws, {WTF:true});
+		validate_merges(ws, {WTF: !!(opts && opts.validateMerges)});
 		write_biff_rec(ba, 0x00e5 /* MergeCells */, write_MergeCells(ws['!merges']));
 	}
 	/* [LRng] *QUERYTABLE [PHONETICINFO] CONDFMTS */
@@ -28581,7 +28588,9 @@ function safe_parse_sheet(zip, path, relsPath, sheet, idx, sheetRels, sheets, st
 		if(tcomments && tcomments.length) sheet_insert_comments(_ws, tcomments, true, opts.people || []);
 		if(stype == "sheet") parse_sheet_drawing(_ws, stype, zip, path, idx, opts, wb);
 		parse_sheet_legacy_drawing(_ws, stype, zip, path, idx, opts, wb, comments);
-	} catch(e) { if(opts.WTF) throw e; }
+	} catch(e) {
+		if(opts.WTF || (opts.validateMerges && e && /^E_MERGE_/.test(e.code))) throw e;
+	}
 }
 
 function strip_front_slash(x) { return x.charAt(0) == '/' ? x.slice(1) : x; }

@@ -82,14 +82,16 @@ const styleObject: XLSX.CellStyle = visualSheet["A1"].s;
 const styleColor: XLSX.StyleColor = styleObject.font && styleObject.font.color || {};
 const htmlPx: number = XLSX.utils.col_width_to_px(8.43) + XLSX.utils.row_height_to_px(15);
 const mergeErrors: XLSX.MergeError[] = XLSX.utils.validate_merges(visualSheet);
-const measuredWidth: number = XLSX.utils.measure_text_width("Auto fit", styleObject, {measureText: function(text: string) { return text.length * 7; }});
-const fitColumns: XLSX.ColInfo[] = XLSX.utils.auto_fit_columns(visualSheet, {set: false, measureText: function(text: string) { return text.length * 7; }});
+const measuredWidth: number = XLSX.utils.measure_text_width("Auto fit", styleObject, {measureText(text: string) { return text.length * 7; }});
+const fitColumns: XLSX.ColInfo[] = XLSX.utils.auto_fit_columns(visualSheet, {set: false, measureText(text: string) { return text.length * 7; }});
 const fitColumnsAlias: XLSX.ColInfo[] = XLSX.utils.autofit_columns(visualSheet, {set: false});
 const firstChart: XLSX.ChartInfo = visualSheet["!charts"] && visualSheet["!charts"][0];
 const chartModel: XLSX.ChartModel = firstChart && firstChart.model || { series: [] };
 const firstSeries: XLSX.ChartSeries = chartModel.series && chartModel.series[0];
 const firstDrawing: XLSX.DrawingImage = visualSheet["!drawings"] && visualSheet["!drawings"].images && visualSheet["!drawings"].images[0];
-console.log(styledHtml, styleColor.rgb, htmlPx, mergeErrors.length, measuredWidth, fitColumns[0] && fitColumns[0].wpx, fitColumnsAlias.length, firstSeries && firstSeries.name, firstDrawing && firstDrawing.dataURI);
+console.log(styledHtml, styleColor.rgb, htmlPx, mergeErrors.length, measuredWidth,
+    fitColumns[0] && fitColumns[0].wpx, fitColumnsAlias.length, firstSeries && firstSeries.name,
+    firstDrawing && firstDrawing.dataURI);
 
 const CFB = XLSX.CFB;
 const vbawb = XLSX.readFile("test.xlsm", {bookVBA:true});

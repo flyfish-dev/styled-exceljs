@@ -144,7 +144,6 @@ function check_wb(wb) {
 	check_wb_names(wb.SheetNames, Sheets, !!wb.vbaraw);
 	for(var i = 0; i < wb.SheetNames.length; ++i) {
 		var ws = sheet_map_get(wb.Sheets, wb.SheetNames[i]);
-		if(!ws) throw new Error("Missing worksheet |" + wb.SheetNames[i] + "|");
 		check_ws(ws, wb.SheetNames[i], i);
 	}
 	wb.SheetNames.forEach(function(n, i) {

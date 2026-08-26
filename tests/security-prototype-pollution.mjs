@@ -69,4 +69,20 @@ safeLinkSheet.A1.l = { Target: 'https://file-viewer.app/docs' }
 const safeHtml = XLSX.utils.sheet_to_html(safeLinkSheet)
 assert.equal(safeHtml.includes('<a href="https://file-viewer.app/docs">safe link</a>'), true)
 
+const legacyMergeSheet = XLSX.utils.aoa_to_sheet([['legacy merge']])
+legacyMergeSheet['!merges'] = [XLSX.utils.decode_range('A1:B2')]
+const legacyMergeWorkbook = XLSX.utils.book_new()
+XLSX.utils.book_append_sheet(legacyMergeWorkbook, legacyMergeSheet, 'Merge')
+const legacyMergeBuffer = XLSX.write(legacyMergeWorkbook, { type: 'buffer', bookType: 'xlsx' })
+const legacyMergeRoundTrip = XLSX.read(legacyMergeBuffer, { type: 'buffer', WTF: true })
+assert.equal(legacyMergeRoundTrip.Sheets.Merge['!mergeErrors'][0].code, 'E_MERGE_BOUNDS')
+assert.throws(
+  () => XLSX.read(legacyMergeBuffer, { type: 'buffer', validateMerges: true }),
+  /Merge range exceeds worksheet range/,
+)
+assert.throws(
+  () => XLSX.write(legacyMergeWorkbook, { type: 'buffer', bookType: 'xlsx', validateMerges: true }),
+  /Merge range exceeds worksheet range/,
+)
+
 console.log('styled-exceljs ODS prototype-pollution regression passed')

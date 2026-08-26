@@ -483,7 +483,7 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 	};
 	var finalize_sheet_visuals = function finalizesheetvisuals(ws) {
 		if(ws["!merges"] && ws["!merges"].length) {
-			var mergeErrors = validate_merges(ws, {WTF: !!(options && (options.WTF || options.validateMerges))});
+			var mergeErrors = validate_merges(ws, {WTF: !!(options && options.validateMerges)});
 			if(mergeErrors.length) ws["!mergeErrors"] = mergeErrors;
 		}
 		if(drawings && (drawings.images.length || drawings.shapes.length || drawings.charts.length || drawings.raw.length)) ws["!drawings"] = drawings;
@@ -873,7 +873,7 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 					while(val.e >= val.s) {
 						colinfo[val.e--] = { width: val.w/256, level: (val.level || 0), hidden: !!(val.flags & 1) };
 						if(val.ixfe != null && XFs[val.ixfe]) colinfo[val.e+1].s = resolve_xls_style(XFs[val.ixfe], val.ixfe);
-						if(!seencol) { seencol = true; MDW = DEF_MDW; }
+						if(!seencol) { seencol = true; MDW = DEF_MDW; find_mdw_colw(val.w/256); }
 						process_col(colinfo[val.e+1]);
 					}
 				} break;

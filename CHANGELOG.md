@@ -4,6 +4,18 @@ This log is intended to keep track of backwards-incompatible changes, including
 but not limited to API changes and file location changes.  Minor behavioral
 changes may not be included if they are not expected to break existing code.
 
+## v0.21.4
+
+* Restore applied OOXML table styles, including totals rows, banding, first and
+  last column emphasis, and differential-format overrides
+* Preserve legacy XLS/XLSX column-width and pixel conversions by inferring the
+  workbook font metric independently for each worksheet
+* Keep tolerant reads and writes compatible with legacy out-of-range merges;
+  `validateMerges:true` retains explicit strict validation
+* Normalize CRLF and CR comment newlines in safe HTML output, and retain the
+  established empty-sheet fallback when a workbook lists a missing worksheet
+* Refresh generated distributions and the audited development toolchain
+
 ## v0.21.3
 
 * Store document-controlled worksheet names in own-property-only maps and

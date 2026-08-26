@@ -621,7 +621,7 @@ function write_ws_biff8(idx/*:number*/, opts, wb/*:Workbook*/) {
 	if(b8) write_biff_rec(ba, 0x023e /* Window2 */, write_Window2((_WB.Views||[])[0]));
 	/* ... */
 	if(b8 && (ws['!merges']||[]).length) {
-		validate_merges(ws, {WTF:true});
+		validate_merges(ws, {WTF: !!(opts && opts.validateMerges)});
 		write_biff_rec(ba, 0x00e5 /* MergeCells */, write_MergeCells(ws['!merges']));
 	}
 	/* [LRng] *QUERYTABLE [PHONETICINFO] CONDFMTS */

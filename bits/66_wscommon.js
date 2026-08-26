@@ -186,7 +186,11 @@ function validate_merges(ws/*:Worksheet*/, opts/*:?any*/) {
 				errors.push({code:"E_MERGE_OVERLAP", message:"Merge ranges overlap", index:i, other:j, range:enc, otherRange:encode_range(merges[j])});
 		}
 	}
-	if(errors.length && opts && opts.WTF) throw new Error(errors[0].message + " (" + (errors[0].range || errors[0].index) + ")");
+	if(errors.length && opts && opts.WTF) {
+		var err/*:any*/ = new Error(errors[0].message + " (" + (errors[0].range || errors[0].index) + ")");
+		err.code = errors[0].code;
+		throw err;
+	}
 	return errors;
 }
 
