@@ -682,7 +682,7 @@ function parse_ws_bin(data, _opts, idx, rels, wb/*:WBWBProps*/, themes, styles)/
 				if(!opts.cellStyles) break;
 				while(val.e >= val.s) {
 					colinfo[val.e--] = { width: val.w/256, hidden: !!(val.flags & 0x01), level: val.level };
-					if(!seencol) { seencol = true; MDW = DEF_MDW; find_mdw_colw(val.w/256); }
+					if(!seencol) { seencol = true; MDW = DEF_MDW; }
 					process_col(colinfo[val.e+1]);
 				}
 				break;

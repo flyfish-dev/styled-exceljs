@@ -36,6 +36,7 @@ const createFixture = (tableRef = 'A1:E4', customStyle = false) => zipSync({
   'xl/worksheets/sheet1.xml': xml(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <dimension ref="A1:E4"/>
+  <cols><col min="2" max="2" width="15.875" customWidth="1"/><col min="3" max="4" width="10.25" customWidth="1"/><col min="5" max="5" width="27.625" customWidth="1"/></cols>
   <sheetData>
     <row r="1"><c r="A1" t="inlineStr"><is><t>Column 1</t></is></c><c r="B1" t="inlineStr"><is><t>Column 2</t></is></c><c r="C1" t="inlineStr"><is><t>Count</t></is></c><c r="D1" t="inlineStr"><is><t>Total</t></is></c><c r="E1" t="inlineStr"><is><t>Average</t></is></c></row>
     <row r="2"><c r="A2" t="inlineStr"><is><t>A</t></is></c><c r="B2" t="inlineStr"><is><t>One</t></is></c><c r="C2"><v>2</v></c><c r="D2"><v>10</v></c><c r="E2"><v>5</v></c></row>
@@ -93,6 +94,16 @@ assert.equal(worksheet['!tables'].length, 1)
 assert.equal(worksheet['!tables'][0].ref, expectedRef)
 assert.equal(worksheet['!tables'][0].styleInfo.name, 'TableStyleMedium13')
 assert.equal(worksheet['!tables'][0].styleInfo.showRowStripes, true)
+assert.deepEqual(
+  Array.from({ length: 5 }, (_, index) => worksheet['!cols'][index]?.wpx ?? null),
+  [null, 111, 72, 72, 193],
+  'Office-compatible OOXML column widths must keep the workbook MDW fallback',
+)
+assert.deepEqual(
+  Array.from({ length: 5 }, (_, index) => worksheet['!cols'][index]?.MDW ?? null),
+  [null, 7, 7, 7, 7],
+  'one ambiguous stored width must not change the worksheet scale',
+)
 
 const cell = (row, col) => worksheet['!data']?.[row]?.[col]
 const style = (row, col) => XLSX.utils.resolve_table_cell_style(worksheet, row, col, cell(row, col)?.s)

@@ -8,8 +8,8 @@ changes may not be included if they are not expected to break existing code.
 
 * Restore applied OOXML table styles, including totals rows, banding, first and
   last column emphasis, and differential-format overrides
-* Preserve legacy XLS/XLSX column-width and pixel conversions by inferring the
-  workbook font metric independently for each worksheet
+* Preserve XLS/XLSX column-width and pixel conversions with the Office-compatible
+  fallback metric; ambiguous stored widths no longer rescale a worksheet
 * Keep tolerant reads and writes compatible with legacy out-of-range merges;
   `validateMerges:true` retains explicit strict validation
 * Normalize CRLF and CR comment newlines in safe HTML output, and retain the

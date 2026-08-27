@@ -873,7 +873,7 @@ function parse_workbook(blob, options/*:ParseOpts*/)/*:Workbook*/ {
 					while(val.e >= val.s) {
 						colinfo[val.e--] = { width: val.w/256, level: (val.level || 0), hidden: !!(val.flags & 1) };
 						if(val.ixfe != null && XFs[val.ixfe]) colinfo[val.e+1].s = resolve_xls_style(XFs[val.ixfe], val.ixfe);
-						if(!seencol) { seencol = true; MDW = DEF_MDW; find_mdw_colw(val.w/256); }
+						if(!seencol) { seencol = true; MDW = DEF_MDW; }
 						process_col(colinfo[val.e+1]);
 					}
 				} break;

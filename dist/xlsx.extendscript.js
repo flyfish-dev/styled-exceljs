@@ -11295,10 +11295,10 @@ function resolve_style_obj_color(obj, themes) {
 
 /* 18.3.1.13 width calculations */
 /* [MS-OI29500] 2.1.595 Column Width & Formatting */
-/* The file format does not store MDW directly.  Six is the historical
- * fallback when Normal-font metrics are unavailable; binary and OOXML readers
- * refine it from the first stored character width in each worksheet. */
-var DEF_MDW = 6, MAX_MDW = 15, MIN_MDW = 1, MDW = DEF_MDW;
+/* The file format does not store MDW directly.  Seven is the Office-compatible
+ * fallback when Normal-font metrics are unavailable.  A single stored column
+ * width is ambiguous and must not change the scale for the rest of a sheet. */
+var DEF_MDW = 7, MAX_MDW = 15, MIN_MDW = 1, MDW = DEF_MDW;
 function width2px(width) { return Math.floor(( width + (Math.round(128/MDW))/256 )* MDW ); }
 function px2char(px) { return (Math.floor((px - 5)/MDW * 100 + 0.5))/100; }
 function char2width(chr) { return (Math.round((chr * MDW + 5)/MDW*256))/256; }
@@ -17325,9 +17325,9 @@ function parse_ws_xml_cols(columns, cols) {
 		var colm=parseInt(coll.min, 10)-1, colM=parseInt(coll.max,10)-1;
 		if(coll.outlineLevel) coll.level = (+coll.outlineLevel || 0);
 		delete coll.min; delete coll.max; coll.width = +coll.width;
-		/* Start from the compatibility fallback for every worksheet so a prior
-		 * sheet cannot leak its inferred Normal-font metric into this one. */
-		if(!seencol && coll.width) { seencol = true; MDW = DEF_MDW; find_mdw_colw(coll.width); }
+		/* OOXML widths share the workbook Normal-font MDW.  Do not infer it from
+		 * one ambiguous stored width or leak another worksheet's scale. */
+		if(!seencol && coll.width) { seencol = true; MDW = DEF_MDW; }
 		process_col(coll);
 		while(colm <= colM) columns[colm++] = dup(coll);
 	}
@@ -18497,7 +18497,7 @@ function parse_ws_bin(data, _opts, idx, rels, wb, themes, styles) {
 				if(!opts.cellStyles) break;
 				while(val.e >= val.s) {
 					colinfo[val.e--] = { width: val.w/256, hidden: !!(val.flags & 0x01), level: val.level };
-					if(!seencol) { seencol = true; MDW = DEF_MDW; find_mdw_colw(val.w/256); }
+					if(!seencol) { seencol = true; MDW = DEF_MDW; }
 					process_col(colinfo[val.e+1]);
 				}
 				break;
@@ -22040,7 +22040,7 @@ wb.opts.Date1904 = Workbook.WBProps.date1904 = val; break;
 					while(val.e >= val.s) {
 						colinfo[val.e--] = { width: val.w/256, level: (val.level || 0), hidden: !!(val.flags & 1) };
 						if(val.ixfe != null && XFs[val.ixfe]) colinfo[val.e+1].s = resolve_xls_style(XFs[val.ixfe], val.ixfe);
-						if(!seencol) { seencol = true; MDW = DEF_MDW; find_mdw_colw(val.w/256); }
+						if(!seencol) { seencol = true; MDW = DEF_MDW; }
 						process_col(colinfo[val.e+1]);
 					}
 				} break;
