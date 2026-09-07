@@ -4,6 +4,16 @@ This log is intended to keep track of backwards-incompatible changes, including
 but not limited to API changes and file location changes.  Minor behavioral
 changes may not be included if they are not expected to break existing code.
 
+## Unreleased (0.21.5 candidate)
+
+* Ignore unused MiniFAT pointers only when no live stream needs their data;
+  preserve the unchanged FAT-backed Workbook stream and all cell values
+* Reject missing required MiniFAT/root streams with explicit CFB errors instead
+  of a metadata `name` assignment crash or an empty replacement stream
+* Refresh legacy column-width assertions for the stable MDW=7 fallback introduced
+  in 0.21.4; retain each format's native character or pixel units without changing
+  parser measurements to satisfy old expectations
+
 ## v0.21.4
 
 * Restore applied OOXML table styles, including totals rows, banding, first and

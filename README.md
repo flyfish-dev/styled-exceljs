@@ -109,6 +109,27 @@ npm install styled-exceljs
 完整中文数据结构、选项说明和渲染行为请参考
 [中文视觉保真指南](docs/visual-fidelity.zh-CN.md)。
 
+## Regression tests
+
+Run `npm test` with the official SheetJS fixture corpus in the ignored
+`test_files/` directory. The Makefile's source is
+[test_files.zip](https://test-files.sheetjs.com/test_files.zip). The 2024-07-17
+archive used for the 0.21.5 candidate has SHA-256
+`a786d4f1a80adf9447997b6f3b30b2593c776c27e0b075e3971627c17205f220`.
+Do not commit the corpus or private customer files.
+
+The candidate run passed 74,699 tests with four pending tests. Four legacy
+column-width assertions also failed on unchanged 0.21.4: they assumed MDW=6
+instead of that version's stable MDW=7 fallback. The updated assertions keep
+native XLS/XLSX widths distinct from XLML pixel widths and SYLK character widths;
+the parser's measured values are unchanged. MiniFAT tests cover the failure
+mechanism with generated files, not the unavailable private reporter file.
+
+回归测试需要官方语料；语料和客户文件不能提交。0.21.5 候选版全量测试为
+74,699 项通过、4 项待启用。四项旧列宽断言在未修改的 0.21.4 上同样失败，
+本次只更新断言以符合该版已有的 MDW=7 行为，不修改解析结果来迎合测试。
+MiniFAT 合成文件证明了故障机制，不代表已验证尚未提供的私有原文件。
+
 ## Constellation
 
 - <https://oss.sheetjs.com/notes/>: File Format Notes

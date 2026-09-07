@@ -45,4 +45,5 @@ jobs:
       - run: npm run test:security
       - run: npm run test:table-styles
       - run: make all
+      - run: npm run test:cfb-minifat
       - run: npm pack --dry-run

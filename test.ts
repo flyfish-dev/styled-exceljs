@@ -1041,31 +1041,33 @@ Deno.test('parse features', async function(t) {
 			wbs.forEach(function(wb) { assert.assert(wb.Sheets["Sheet1"]['!cols']); });
 		});
 		await t.step('should have correct widths', async function(t) {
-			/* SYLK rounds wch so skip non-integral */
-			wbs_no_slk.map(function(x) { return x.Sheets["Sheet1"]['!cols']; }).forEach(function(x) {
-				assert.equal(x?.[1]?.width, 0.1640625);
-				assert.equal(x?.[2]?.width, 16.6640625);
-				assert.equal(x?.[3]?.width, 1.6640625);
-			});
-			wbs.map(function(x) { return x.Sheets["Sheet1"]['!cols']; }).forEach(function(x) {
-				assert.equal(x?.[4]?.width, 4.83203125);
-				assert.equal(x?.[5]?.width, 8.83203125);
-				assert.equal(x?.[6]?.width, 12.83203125);
-				assert.equal(x?.[7]?.width, 16.83203125);
+			/* XLS-family widths are MDW units; XLML stores pixels, SYLK characters.
+			 * The documented Office fallback is MDW 7, not an inferred 6. */
+			var nativeWidths = [0.1640625, 16.6640625, 1.6640625, 4.83203125, 8.83203125, 12.83203125, 16.83203125];
+			var xmlWidths = [0.14453125, 14.28515625, 1.42578125, 4.14453125, 7.57421875, 11.00390625, 14.42578125];
+			var sylkWidths = [null, 16.71484375, 1.71484375, 4.71484375, 8.71484375, 12.71484375, 16.71484375];
+			var expectedWidths = [nativeWidths, nativeWidths, nativeWidths, xmlWidths, nativeWidths, sylkWidths];
+			wbs.forEach(function(wb, index) {
+				var columns = wb.Sheets["Sheet1"]['!cols'];
+				expectedWidths[index].forEach(function(width, column) {
+					var col = columns && columns[column + 1];
+					if(!col) throw new Error("Missing column");
+					if(width === null) { assert.equal(col.hidden, true); return; }
+					assert.equal(col.width, width);
+					assert.equal(col.MDW, 7);
+				});
 			});
 		});
 		await t.step('should have correct pixels', async function(t) {
-			/* SYLK rounds wch so skip non-integral */
-			wbs_no_slk.map(function(x) { return x.Sheets["Sheet1"]['!cols']; }).forEach(function(x) {
-				assert.equal(x?.[1].wpx, 1);
-				assert.equal(x?.[2].wpx, 100);
-				assert.equal(x?.[3].wpx, 10);
-			});
-			wbs.map(function(x) { return x.Sheets["Sheet1"]['!cols']; }).forEach(function(x) {
-				assert.equal(x?.[4].wpx, 29);
-				assert.equal(x?.[5].wpx, 53);
-				assert.equal(x?.[6].wpx, 77);
-				assert.equal(x?.[7].wpx, 101);
+			var nativePixels = [1, 117, 12, 34, 62, 90, 118];
+			var expectedPixels = [nativePixels, nativePixels, nativePixels, [1, 100, 10, 29, 53, 77, 101], nativePixels, [null, 117, 12, 33, 61, 89, 117]];
+			wbs.forEach(function(wb, index) {
+				var columns = wb.Sheets["Sheet1"]['!cols'];
+				expectedPixels[index].forEach(function(pixels, column) {
+					var col = columns && columns[column + 1];
+					if(!col) throw new Error("Missing column");
+					if(pixels !== null) assert.equal(col.wpx, pixels);
+				});
 			});
 		});
 		await t.step('should have correct outline levels', async function(t) {

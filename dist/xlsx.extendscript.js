@@ -160,7 +160,7 @@ var DO_NOT_EXPORT_CODEPAGE = true;
 /*global global, exports, module, require:false, process:false, Buffer:false, ArrayBuffer:false, DataView:false, Deno:false, Set:false, Float32Array:false, Int8Array:false */
 var XLSX = {};
 function make_xlsx_lib(XLSX){
-XLSX.version = '0.21.4';
+XLSX.version = '0.21.5';
 var current_codepage = 1200, current_ansi = 1252;
 /*global cptable:true, window */
 var $cptable;
@@ -1819,8 +1819,12 @@ sleuth_fat(difat_start, difat_sec_cnt, sectors, ssz, fat_addrs);
 /** Chains */
 var sector_list = make_sector_list(sectors, dir_start, fat_addrs, ssz);
 
-if(dir_start < sector_list.length) sector_list[dir_start].name = "!Directory";
-if(nmfs > 0 && minifat_start !== ENDOFCHAIN) sector_list[minifat_start].name = "!MiniFAT";
+if(!sector_list[dir_start]) throw new Error("CFB directory chain is missing");
+sector_list[dir_start].name = "!Directory";
+/* A stale MiniFAT location is irrelevant when no live entry uses mini streams.
+ * Validate required chains when reading their live directory entries. */
+if(nmfs > 0 && sector_list[minifat_start]) sector_list[minifat_start].name = "!MiniFAT";
+if(!sector_list[fat_addrs[0]]) throw new Error("CFB FAT chain is missing");
 sector_list[fat_addrs[0]].name = "!FAT";
 sector_list.fat_addrs = fat_addrs;
 sector_list.ssz = ssz;
@@ -2032,10 +2036,14 @@ function read_directory(dir_start, sector_list, sectors, Paths, nmfs, files, Fil
 		if(mtime !== 0) o.mt = read_date(blob, blob.l-8);
 		o.start = blob.read_shift(4, 'i');
 		o.size = blob.read_shift(4, 'i');
+		if(o.type === 0) { o.size = 0; o.start = ENDOFCHAIN; }
 		if(o.size < 0 && o.start < 0) { o.size = o.type = 0; o.start = ENDOFCHAIN; o.name = ""; }
 		if(o.type === 5) { /* root */
-			minifat_store = o.start;
-			if(nmfs > 0 && minifat_store !== ENDOFCHAIN) sector_list[minifat_store].name = "!StreamData";
+			minifat_store = o.size > 0 ? o.start : ENDOFCHAIN;
+			if(o.size > 0 && nmfs > 0) {
+				if(!sector_list[minifat_store]) throw new Error("CFB root mini stream is missing");
+				sector_list[minifat_store].name = "!StreamData";
+			}
 			/*minifat_size = o.size;*/
 		} else if(o.size >= 4096 /* MSCSZ */) {
 			o.storage = 'fat';
@@ -2045,8 +2053,11 @@ function read_directory(dir_start, sector_list, sectors, Paths, nmfs, files, Fil
 		} else {
 			o.storage = 'minifat';
 			if(o.size < 0) o.size = 0;
-			else if(minifat_store !== ENDOFCHAIN && o.start !== ENDOFCHAIN && sector_list[minifat_store]) {
-				o.content = get_mfat_entry(o, sector_list[minifat_store].data, (sector_list[mini]||{}).data);
+			else if(o.type === 2 && o.size > 0) {
+				if(nmfs < 1 || !sector_list[mini]) throw new Error("CFB MiniFAT chain is missing for stream: " + o.name);
+				if(!sector_list[minifat_store]) throw new Error("CFB root mini stream is missing");
+				o.content = get_mfat_entry(o, sector_list[minifat_store].data, sector_list[mini].data);
+				if(o.content.length !== o.size) throw new Error("CFB mini stream is truncated: " + o.name);
 			}
 		}
 		if(o.content) prep_blob(o.content, 0);
@@ -3376,7 +3387,6 @@ exports.utils = {
 
 return exports;
 })();
-
 var _fs;
 function set_fs(fs) { _fs = fs; }
 
