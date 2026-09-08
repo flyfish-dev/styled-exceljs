@@ -140,7 +140,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://git.sheetjs.com/SheetJS/sheetjs"
+		"url": "git+https://github.com/flyfish-dev/styled-exceljs.git"
 	},
 	"scripts": {
 		"test": "make travis",
@@ -167,7 +167,7 @@
 			"holes"
 		]
 	},
-	"homepage": "https://sheetjs.com/",
+	"homepage": "https://github.com/flyfish-dev/styled-exceljs#readme",
 	"files": [
 		"CHANGELOG.md",
 		"LICENSE",
@@ -188,7 +188,7 @@
 		"types/tsconfig.json"
 	],
 	"bugs": {
-		"url": "https://git.sheetjs.com/SheetJS/sheetjs/issues"
+		"url": "https://github.com/flyfish-dev/styled-exceljs/issues"
 	},
 	"license": "Apache-2.0",
 	"engines": {

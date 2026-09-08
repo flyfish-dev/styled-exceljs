@@ -22,6 +22,21 @@ port calculations to web apps; automate common spreadsheet tasks, and much more!
 
 ## Documentation
 
+### Maintainer releases
+
+`publish.yml` checks out the exact stable release tag, runs the security,
+table-style and CFB regressions, builds the package, and publishes with npm
+provenance. The npm trusted publisher must bind `styled-exceljs` to
+`flyfish-dev/styled-exceljs` and `publish.yml`; the workflow itself does not
+create that npm permission. Original SheetJS authorship and licensing remain
+unchanged.
+
+Manual dispatch defaults to a dry run. Reruns skip an existing version only
+when its registry SHA-512 matches the packed bytes. Authentication failures,
+different bytes and uncertain writes stop instead of being silently retried.
+
+### Usage documentation
+
 - [API and Usage Documentation](https://docs.sheetjs.com)
 
 - [Downloadable Scripts and Modules](https://cdn.sheetjs.com)
