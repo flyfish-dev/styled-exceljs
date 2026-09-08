@@ -16,7 +16,7 @@ on:
         type: boolean
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 concurrency:
@@ -44,7 +44,7 @@ jobs:
       - run: node --test .github/scripts/publish-npm.test.mjs
       - run: npm run test:security
       - run: npm run test:table-styles
-      - run: make all dist
+      - run: PATH="$PWD/node_modules/.bin:$PATH" make all dist
       - run: npm run test:cfb-minifat
       - uses: ./.github/actions/corpus
       - name: Full CJS and ESM corpus regression
@@ -63,10 +63,23 @@ jobs:
             node .github/scripts/publish-npm.mjs
           fi
       - name: Preserve the exact verified tarball
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: npm-release-candidate
-          path: ${{ runner.temp }}/npm-release-*/*.tgz
-          retention-days: 7
-          if-no-files-found: warn
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          tarballs=("$RUNNER_TEMP"/npm-release-*/*.tgz)
+          test "${#tarballs[@]}" -eq 1
+          tarball="${tarballs[0]}"
+          filename="$(basename "$tarball")"
+          inventory="$RUNNER_TEMP/release-assets.json"
+          gh release view "$RELEASE_TAG" --json assets > "$inventory"
+          if node -e 'const fs = require("node:fs"); const [file, name] = process.argv.slice(1); process.exit(JSON.parse(fs.readFileSync(file)).assets.some(asset => asset.name === name) ? 0 : 1)' "$inventory" "$filename"; then
+            mkdir -p "$RUNNER_TEMP/release-readback"
+            gh release download "$RELEASE_TAG" --pattern "$filename" --dir "$RUNNER_TEMP/release-readback"
+            cmp "$tarball" "$RUNNER_TEMP/release-readback/$filename"
+          else
+            gh release upload "$RELEASE_TAG" "$tarball"
+          fi
