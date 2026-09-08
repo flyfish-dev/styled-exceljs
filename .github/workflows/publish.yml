@@ -44,7 +44,7 @@ jobs:
       - run: node --test .github/scripts/publish-npm.test.mjs
       - run: npm run test:security
       - run: npm run test:table-styles
-      - run: make all
+      - run: make all dist
       - run: npm run test:cfb-minifat
       - uses: ./.github/actions/corpus
       - name: Full CJS and ESM corpus regression
@@ -62,3 +62,11 @@ jobs:
           else
             node .github/scripts/publish-npm.mjs
           fi
+      - name: Preserve the exact verified tarball
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: npm-release-candidate
+          path: ${{ runner.temp }}/npm-release-*/*.tgz
+          retention-days: 7
+          if-no-files-found: warn

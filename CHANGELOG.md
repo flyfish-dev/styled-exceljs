@@ -4,7 +4,13 @@ This log is intended to keep track of backwards-incompatible changes, including
 but not limited to API changes and file location changes.  Minor behavioral
 changes may not be included if they are not expected to break existing code.
 
-## Unreleased (0.21.5 candidate)
+## v0.21.6
+
+* Publish the maintained fork metadata and current test commands with the parser
+* Rebuild browser distributions from the same source as the CJS and ESM entries
+* Preserve verified CI tarballs for exact-byte comparison before publication
+
+## v0.21.5
 
 * Ignore unused MiniFAT pointers only when no live stream needs their data;
   preserve the unchanged FAT-backed Workbook stream and all cell values

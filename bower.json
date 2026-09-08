@@ -1,7 +1,7 @@
 {
   "name": "js-xlsx",
-  "version": "0.21.3",
-  "homepage": "https://github.com/SheetJS/js-xlsx",
+  "version": "0.21.6",
+  "homepage": "https://github.com/flyfish-dev/styled-exceljs",
   "main": ["xlsx.js"],
   "ignore": [
     "bin",

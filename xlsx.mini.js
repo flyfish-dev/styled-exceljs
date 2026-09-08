@@ -4,7 +4,7 @@
 /*global global, exports, module, require:false, process:false, Buffer:false, ArrayBuffer:false, DataView:false, Deno:false, Set:false, Float32Array:false, Int8Array:false */
 var XLSX = {};
 function make_xlsx_lib(XLSX){
-XLSX.version = '0.21.4';
+XLSX.version = '0.21.6';
 var current_codepage = 1200, current_ansi = 1252;
 /*global cptable:true, window */
 var $cptable;
@@ -1665,8 +1665,8 @@ var sector_list = make_sector_list(sectors, dir_start, fat_addrs, ssz);
 
 if(!sector_list[dir_start]) throw new Error("CFB directory chain is missing");
 sector_list[dir_start].name = "!Directory";
-/* Some producers leave stale MiniFAT locations after removing all mini streams.
- * Require the chain only when a live directory entry actually uses it. */
+/* A stale MiniFAT location is irrelevant when no live entry uses mini streams.
+ * Validate required chains when reading their live directory entries. */
 if(nmfs > 0 && sector_list[minifat_start]) sector_list[minifat_start].name = "!MiniFAT";
 if(!sector_list[fat_addrs[0]]) throw new Error("CFB FAT chain is missing");
 sector_list[fat_addrs[0]].name = "!FAT";

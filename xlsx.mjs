@@ -3,7 +3,7 @@
 /*exported XLSX */
 /*global process:false, Buffer:false, ArrayBuffer:false, DataView:false, Deno:false */
 var XLSX = {};
-XLSX.version = '0.21.4';
+XLSX.version = '0.21.6';
 var current_codepage = 1200, current_ansi = 1252;
 /*:: declare var cptable:any; */
 /*global cptable:true, window */
@@ -1727,8 +1727,8 @@ var sector_list/*:SectorList*/ = make_sector_list(sectors, dir_start, fat_addrs,
 
 if(!sector_list[dir_start]) throw new Error("CFB directory chain is missing");
 sector_list[dir_start].name = "!Directory";
-/* Some producers leave stale MiniFAT locations after removing all mini streams.
- * Require the chain only when a live directory entry actually uses it. */
+/* A stale MiniFAT location is irrelevant when no live entry uses mini streams.
+ * Validate required chains when reading their live directory entries. */
 if(nmfs > 0 && sector_list[minifat_start]) sector_list[minifat_start].name = "!MiniFAT";
 if(!sector_list[fat_addrs[0]]) throw new Error("CFB FAT chain is missing");
 sector_list[fat_addrs[0]].name = "!FAT";
