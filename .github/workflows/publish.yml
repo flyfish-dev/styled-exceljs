@@ -46,6 +46,12 @@ jobs:
       - run: npm run test:table-styles
       - run: make all
       - run: npm run test:cfb-minifat
+      - uses: ./.github/actions/corpus
+      - name: Full CJS and ESM corpus regression
+        env:
+          STYLED_TEST_RUNTIME: node
+          FMTS: full
+        run: npm run test:corpus
       - name: Publish the verified package with provenance
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}

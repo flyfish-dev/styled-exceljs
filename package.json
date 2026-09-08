@@ -147,6 +147,7 @@
 		"test:security": "node tests/security-prototype-pollution.mjs",
 		"test:table-styles": "node tests/table-styles.mjs",
 		"test:cfb-minifat": "node tests/cfb-minifat.mjs && XLSX_TEST_MODULE=./xlsx.mjs node tests/cfb-minifat.mjs",
+		"test:corpus": "node node_modules/mocha/bin/mocha.js --require ./tests/runtime-identity.cjs -R dot -t 30000 test.js && node node_modules/mocha/bin/mocha.js --require ./tests/runtime-identity.cjs -R dot -t 30000 test.mjs",
 		"build": "make",
 		"lint": "make fullint",
 		"dtslint": "dtslint types"

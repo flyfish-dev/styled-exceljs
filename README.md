@@ -35,6 +35,19 @@ Manual dispatch defaults to a dry run. Reruns skip an existing version only
 when its registry SHA-512 matches the packed bytes. Authentication failures,
 different bytes and uncertain writes stop instead of being silently retried.
 
+The maintained CI matrix uses Node 22/24/26, Bun and Deno 2. Node 24 runs the
+full official corpus in both CJS and ESM; the other runtimes run the core
+corpus. A runtime assertion prevents a Bun/Deno command from silently falling
+back to Node. The test archive is pinned to SHA-256
+`a786d4f1a80adf9447997b6f3b30b2593c776c27e0b075e3971627c17205f220`
+and cached once before the matrix. Moving external SVN checkouts and obsolete
+Node 0.x/io.js/Deno 1 harnesses are no longer release gates. Historical engine
+metadata is not evidence of a fresh test on those retired runtimes.
+
+To repeat the full corpus locally after installing the verified archive and
+building the source, run `FMTS=full STYLED_TEST_RUNTIME=node npm run test:corpus`.
+Pending tests remain visible and are not counted as passing.
+
 ### Usage documentation
 
 - [API and Usage Documentation](https://docs.sheetjs.com)

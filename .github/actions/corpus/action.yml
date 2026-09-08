@@ -1,0 +1,18 @@
+name: Verified SheetJS corpus
+description: Restore the pinned official corpus without mutable SVN downloads
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+      id: archive
+      with:
+        path: ${{ runner.temp }}/sheetjs-test-files.zip
+        key: sheetjs-corpus-a786d4f1a80adf9447997b6f3b30b2593c776c27e0b075e3971627c17205f220
+    - if: steps.archive.outputs.cache-hit != 'true'
+      shell: bash
+      run: curl --fail --location --retry 3 --max-time 300 https://test-files.sheetjs.com/test_files.zip -o "$RUNNER_TEMP/sheetjs-test-files.zip"
+    - shell: bash
+      run: |
+        printf '%s  %s\n' 'a786d4f1a80adf9447997b6f3b30b2593c776c27e0b075e3971627c17205f220' "$RUNNER_TEMP/sheetjs-test-files.zip" | sha256sum --check
+        unzip -q "$RUNNER_TEMP/sheetjs-test-files.zip"
+        mkdir -p tmp
