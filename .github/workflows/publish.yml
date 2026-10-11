@@ -39,7 +39,7 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-          cache: npm
+          package-manager-cache: false
       - run: npm ci --ignore-scripts
       - run: node --test .github/scripts/publish-npm.test.mjs
       - run: npm run test:security
@@ -63,6 +63,7 @@ jobs:
             node .github/scripts/publish-npm.mjs
           fi
       - name: Preserve the exact verified tarball
+        if: github.event_name == 'release' || inputs.dry_run == false
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

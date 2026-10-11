@@ -34,10 +34,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
+          package-manager-cache: false
       - run: npm ci --ignore-scripts
       - uses: ./.github/actions/corpus
       - run: make all
+      - run: npm run test:tooling
       - run: npm run test:security
       - run: npm run test:table-styles
       - run: npm run test:cfb-minifat
@@ -62,7 +63,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-          cache: npm
+          package-manager-cache: false
       - run: npm ci --ignore-scripts
       - uses: ./.github/actions/corpus
       - run: make all
