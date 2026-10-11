@@ -40,8 +40,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
+          package-manager-cache: false
       - run: npm ci --ignore-scripts
       - run: npm audit --audit-level=low
+      - run: npm run test:tooling
       - run: npm run test:security
       - run: npm run test:table-styles
       - run: make all

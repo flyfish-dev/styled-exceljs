@@ -2,14 +2,26 @@ name: Automatic Rebase
 
 on: [pull_request_target]
 
+permissions:
+  contents: read
+
 jobs:
   _:
     name: "Automatic Rebase"
 
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
-    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-    - uses: ljharb/rebase@c6bd0a72b14dfaf76ad6a070029c8b4592d03eea
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Read the branch relationship without rewriting a PR
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        PR_BASE: ${{ github.event.pull_request.base.sha }}
+      run: |
+        node -e 'for (const name of ["PR_HEAD", "PR_BASE"]) { if (!/^[a-f0-9]{40}$/.test(process.env[name] || "")) throw new Error("Invalid PR commit identity"); }'
+        git fetch --no-tags origin "$PR_HEAD" "$PR_BASE"
+        git merge-base "$PR_BASE" "$PR_HEAD"
+        git rev-list --left-right --count "$PR_BASE...$PR_HEAD"

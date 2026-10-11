@@ -110,6 +110,7 @@
 	},
 	"sideEffects": false,
 	"devDependencies": {
+		"@eslint/eslintrc": "3.3.7",
 		"@sheetjs/uglify-js": "~2.7.3",
 		"@types/node": "8.5.9",
 		"acorn": "7.4.1",
@@ -121,9 +122,9 @@
 		"commander": "~2.17.1",
 		"crc-32": "~1.2.2",
 		"dtslint": "^0.1.2",
-		"eslint": "7.23.0",
-		"eslint-plugin-html": "^6.1.2",
-		"eslint-plugin-json": "^2.1.2",
+		"eslint": "10.12.0",
+		"eslint-plugin-html": "8.2.1",
+		"eslint-plugin-json": "5.0.0",
 		"exit-on-epipe": "~1.0.1",
 		"fflate": "^0.7.1",
 		"jsdom": "^27.4.0",
@@ -145,6 +146,7 @@
 	"scripts": {
 		"test": "make travis",
 		"test:security": "node tests/security-prototype-pollution.mjs",
+		"test:tooling": "node --test tests/tooling-config.mjs",
 		"test:table-styles": "node tests/table-styles.mjs",
 		"test:cfb-minifat": "node tests/cfb-minifat.mjs && XLSX_TEST_MODULE=./xlsx.mjs node tests/cfb-minifat.mjs",
 		"test:corpus": "node node_modules/mocha/bin/mocha.js --require ./tests/runtime-identity.cjs -R dot -t 30000 test.js && node node_modules/mocha/bin/mocha.js --require ./tests/runtime-identity.cjs -R dot -t 30000 test.mjs",
