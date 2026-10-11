@@ -17,3 +17,5 @@ tests/fixtures.js linguist-generated=true binary
 test.mjs    lingust-generated=false binary=false text eol=lf
 
 .github/scripts/*.mjs linguist-generated=false !binary text diff merge eol=lf
+eslint.config.mjs linguist-generated=false !binary text diff merge eol=lf
+tests/*.mjs linguist-generated=false !binary text diff merge eol=lf
